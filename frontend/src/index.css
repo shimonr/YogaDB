@@ -1,0 +1,11 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+body {
+  @apply bg-sand-50 text-slate-800;
+}
+
+a.active {
+  @apply bg-sage-100 text-sage-700;
+}

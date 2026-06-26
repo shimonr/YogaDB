@@ -1,0 +1,15 @@
+[
+  {
+    "id": 1,
+    "english_name": "Mountain Pose",
+    "sanskrit_name": "Tadasana",
+    "alternative_name_1": "Samasthiti",
+    "alternative_name_2": null,
+    "difficulty_level": 1,
+    "benefits": "Improves posture and grounding.",
+    "is_classic": true,
+    "type": "standing",
+    "category": "focus",
+    "rank": 50
+  }
+]
