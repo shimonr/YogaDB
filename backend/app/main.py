@@ -1,15 +1,16 @@
 import logging
+import os
 from contextlib import asynccontextmanager
 from pathlib import Path
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.core.config import get_settings
 from app.core.database import Base, SessionLocal, engine
 from app.core.security import get_password_hash
 from app.models import Asana, Flow, Photo, Ranking, Transition, User
-from app.routes import asanas, auth, flows, photos, ranking, transitions, users
+from app.routes import admin, asanas, auth, classes, flows, photos, ranking, transitions, users
 
 logger = logging.getLogger(__name__)
 settings = get_settings()
@@ -27,12 +28,12 @@ def _seed_if_empty() -> None:
                 User(
                     username="shimon",
                     email="shimon@example.com",
-                    password_hash=get_password_hash("adm"),
+                    password_hash=get_password_hash(settings.admin_password),
                     role="admin",
                 )
             )
             db.commit()
-            logger.info("Production mode — created admin user only (shimon / adm).")
+            logger.info("Production mode — created admin user only.")
             return
 
         csv_path = settings.asanas_csv_file
@@ -43,12 +44,12 @@ def _seed_if_empty() -> None:
                 User(
                     username="shimon",
                     email="shimon@example.com",
-                    password_hash=get_password_hash("adm"),
+                    password_hash=get_password_hash(settings.admin_password),
                     role="admin",
                 )
             )
             db.commit()
-            logger.info("Created admin user: shimon / adm")
+            logger.info("Created admin user: shimon")
             return
 
         if not images_dir or not images_dir.is_dir():
@@ -90,12 +91,12 @@ def _seed_if_empty() -> None:
             User(
                 username="shimon",
                 email="shimon@example.com",
-                password_hash=get_password_hash("adm"),
+                password_hash=get_password_hash(settings.admin_password),
                 role="admin",
             )
         )
         db.commit()
-        logger.info("Seeded %d asanas and admin user (shimon / adm).", len(payload))
+        logger.info("Seeded %d asanas and admin user.", len(payload))
     except Exception:
         logger.exception("Failed to seed database")
         db.rollback()
@@ -119,6 +120,17 @@ app.add_middleware(
     allow_headers=["Authorization", "Content-Type"],
 )
 
+
+@app.middleware("http")
+async def security_headers(request: Request, call_next):
+    response: Response = await call_next(request)
+    response.headers["X-Content-Type-Options"] = "nosniff"
+    response.headers["X-Frame-Options"] = "DENY"
+    response.headers["X-XSS-Protection"] = "1; mode=block"
+    if settings.env == "production":
+        response.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"
+    return response
+
 app.include_router(auth.router, prefix="/api/auth", tags=["auth"])
 app.include_router(asanas.router, prefix="/api/asanas", tags=["asanas"])
 app.include_router(photos.router, prefix="/api/photos", tags=["photos"])
@@ -126,6 +138,8 @@ app.include_router(transitions.router, prefix="/api/transitions", tags=["transit
 app.include_router(flows.router, prefix="/api/flows", tags=["flows"])
 app.include_router(ranking.router, prefix="/api/ranking", tags=["ranking"])
 app.include_router(users.router, prefix="/api/users", tags=["users"])
+app.include_router(classes.router, prefix="/api/classes", tags=["classes"])
+app.include_router(admin.router, prefix="/api/admin", tags=["admin"])
 
 
 @app.get("/health")

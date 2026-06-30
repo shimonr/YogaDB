@@ -1,9 +1,9 @@
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
-from app.models import Asana, Flow, Photo, Ranking, Transition
+from app.models import Asana, Class, Flow, Photo, Ranking, Transition
 
-TARGET_MAP = {"asana": Asana, "photo": Photo, "transition": Transition, "flow": Flow}
+TARGET_MAP = {"asana": Asana, "photo": Photo, "transition": Transition, "flow": Flow, "class": Class}
 
 
 def target_exists(db: Session, target_type: str, target_id: int) -> bool:

@@ -3,6 +3,7 @@ import { useParams, Link } from "react-router-dom";
 import { api } from "../lib/api";
 import type { Asana, Photo } from "../lib/types";
 import { RankStars } from "../components/RankStars";
+import { PhotoUpload } from "../components/PhotoUpload";
 import { useAuth } from "../lib/auth";
 import { photoFileUrl } from "../lib/photoUrl";
 
@@ -160,6 +161,7 @@ export function AsanaDetailPage() {
           {status && <span className="text-xs text-slate-600">{status}</span>}
         </div>
       </div>
+      {user && <PhotoUpload asanaId={Number(id)} onUploaded={refresh} />}
       <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
         {[...photos]
           .sort((a, b) => b.rank - a.rank)

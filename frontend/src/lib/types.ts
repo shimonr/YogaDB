@@ -47,3 +47,12 @@ export type Photo = {
   original_url?: string | null;
   rank: number;
 };
+
+export type Class = {
+  id: number;
+  name: string;
+  description: string;
+  flow_ids: number[];
+  difficulty_level: number;
+  rank: number;
+};

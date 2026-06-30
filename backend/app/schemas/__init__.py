@@ -99,6 +99,52 @@ class FlowOut(ORMBase):
 
 
 class RankingCreate(BaseModel):
-    type: Literal["asana", "photo", "transition", "flow"]
+    type: Literal["asana", "photo", "transition", "flow", "class"]
     target_id: int
     rank: int = Field(ge=1, le=100)
+
+
+class ClassCreate(BaseModel):
+    name: str = Field(min_length=1, max_length=150)
+    description: str = ""
+    flow_ids: list[int] = Field(min_length=1, max_length=50)
+    difficulty_level: int = Field(ge=1, le=5)
+    rank: int = Field(default=50, ge=1, le=100)
+
+
+class ClassOut(ORMBase):
+    id: int
+    name: str
+    description: str
+    flow_ids: list[int]
+    difficulty_level: int
+    rank: int
+
+    @field_validator("flow_ids", mode="before")
+    @classmethod
+    def parse_flow_ids(cls, v):
+        if isinstance(v, str):
+            import json
+            return json.loads(v)
+        return v
+
+
+class RankingLogOut(ORMBase):
+    id: int
+    user_id: int
+    type: str
+    target_id: int
+    old_rank: int | None
+    new_rank: int
+    created_at: datetime
+
+
+class ActivityLogOut(ORMBase):
+    id: int
+    user_id: int | None
+    action: str
+    entity_type: str
+    entity_id: int | None
+    details: str | None
+    ip_address: str | None
+    created_at: datetime

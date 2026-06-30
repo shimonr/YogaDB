@@ -17,20 +17,24 @@ router = APIRouter()
 settings = get_settings()
 
 _login_attempts: dict[str, list[float]] = defaultdict(list)
+_register_attempts: dict[str, list[float]] = defaultdict(list)
 _MAX_ATTEMPTS = 5
-_WINDOW_SECONDS = 60
+_WINDOW_SECONDS = 300
 
 
-def _check_rate_limit(ip: str) -> None:
+def _check_rate_limit(ip: str, store: dict[str, list[float]] | None = None, label: str = "requests") -> None:
+    store = store if store is not None else _login_attempts
     now = time.time()
-    _login_attempts[ip] = [t for t in _login_attempts[ip] if now - t < _WINDOW_SECONDS]
-    if len(_login_attempts[ip]) >= _MAX_ATTEMPTS:
-        raise HTTPException(status_code=429, detail="Too many login attempts. Try again later.")
-    _login_attempts[ip].append(now)
+    store[ip] = [t for t in store[ip] if now - t < _WINDOW_SECONDS]
+    if len(store[ip]) >= _MAX_ATTEMPTS:
+        raise HTTPException(status_code=429, detail=f"Too many {label}. Try again later.")
+    store[ip].append(now)
 
 
 @router.post("/register", response_model=UserOut)
-def register(payload: UserCreate, db: Annotated[Session, Depends(get_db)]) -> User:
+def register(request: Request, payload: UserCreate, db: Annotated[Session, Depends(get_db)]) -> User:
+    ip = request.client.host if request.client else "unknown"
+    _check_rate_limit(ip, _register_attempts, "registration attempts")
     exists = db.query(User).filter((User.username == payload.username) | (User.email == payload.email)).first()
     if exists:
         raise HTTPException(status_code=400, detail="Username or email already exists")

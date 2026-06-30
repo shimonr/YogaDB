@@ -7,6 +7,8 @@ import { AsanasPage } from "./pages/AsanasPage";
 import { AuthPage } from "./pages/AuthPage";
 import { FlowDetailPage } from "./pages/FlowDetailPage";
 import { FlowsPage } from "./pages/FlowsPage";
+import { ClassesPage } from "./pages/ClassesPage";
+import { ClassDetailPage } from "./pages/ClassDetailPage";
 import { GamesPage } from "./pages/GamesPage";
 import { HomePage } from "./pages/HomePage";
 import { PhotoDetailPage } from "./pages/PhotoDetailPage";
@@ -32,6 +34,8 @@ export default function App() {
         <Route path="/transitions/:id" element={<TransitionDetailPage />} />
         <Route path="/flows" element={<FlowsPage />} />
         <Route path="/flows/:id" element={<FlowDetailPage />} />
+        <Route path="/classes" element={<ClassesPage />} />
+        <Route path="/classes/:id" element={<ClassDetailPage />} />
         <Route path="/photos/:id" element={<PhotoDetailPage />} />
         <Route path="/games" element={<GamesPage />} />
         <Route path="/games/:gameType" element={<GamesPage />} />

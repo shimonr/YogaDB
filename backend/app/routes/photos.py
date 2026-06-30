@@ -2,7 +2,7 @@ import secrets
 from typing import Annotated
 from pathlib import Path
 
-from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile, status
+from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, UploadFile, status
 from fastapi.responses import FileResponse, RedirectResponse
 from sqlalchemy.orm import Session
 
@@ -11,12 +11,31 @@ from app.core.database import get_db
 from app.core.deps import get_current_admin, get_current_user
 from app.models import Asana, Photo, User
 from app.schemas import PhotoCreate, PhotoOut
+from app.services.activity_service import log_activity
 from app.services.cloudinary_service import delete_image, extract_public_id, upload_image
 
 router = APIRouter()
 REPO_ROOT = Path(__file__).resolve().parents[3]
 DATA_ROOT = (REPO_ROOT / "data").resolve()
 UPLOAD_ROOT = REPO_ROOT / "data" / "uploads" / "asanas"
+
+_MAGIC_BYTES = {
+    ".jpg": b"\xff\xd8\xff",
+    ".jpeg": b"\xff\xd8\xff",
+    ".png": b"\x89PNG\r\n\x1a\n",
+    ".webp": b"RIFF",
+}
+
+
+def _validate_magic_bytes(content: bytes, ext: str) -> None:
+    expected = _MAGIC_BYTES.get(ext)
+    if not expected:
+        raise HTTPException(status_code=400, detail="Unsupported file type")
+    if ext == ".webp":
+        if len(content) < 12 or content[8:12] != b"WEBP":
+            raise HTTPException(status_code=400, detail="Invalid WebP file")
+    elif not content.startswith(expected):
+        raise HTTPException(status_code=400, detail="File content does not match extension")
 
 
 def _allowed_roots() -> list[Path]:
@@ -83,6 +102,7 @@ def serve_photo_file(photo_id: int, db: Annotated[Session, Depends(get_db)]):
 
 @router.post("/upload", response_model=PhotoOut, status_code=status.HTTP_201_CREATED)
 async def upload_photo(
+    request: Request,
     db: Annotated[Session, Depends(get_db)],
     user: Annotated[User, Depends(get_current_user)],
     asana_id: Annotated[int, Form(...)],
@@ -101,6 +121,8 @@ async def upload_photo(
     content = await file.read()
     if len(content) > 10 * 1024 * 1024:
         raise HTTPException(status_code=400, detail="File too large (max 10MB)")
+
+    _validate_magic_bytes(content, ext)
 
     filename = f"user-{user.id}-{secrets.token_hex(8)}"
 
@@ -125,6 +147,8 @@ async def upload_photo(
     db.add(item)
     db.commit()
     db.refresh(item)
+    ip = request.client.host if request.client else None
+    log_activity(db, user.id, "upload", "photo", item.id, {"asana_id": asana_id}, ip)
     return item
 
 
@@ -132,13 +156,13 @@ async def upload_photo(
 def create_photo_record(
     payload: PhotoCreate,
     db: Annotated[Session, Depends(get_db)],
-    user: Annotated[User, Depends(get_current_user)],
+    _admin: Annotated[User, Depends(get_current_admin)],
 ) -> Photo:
     asana = db.query(Asana).filter(Asana.id == payload.asana_id).first()
     if not asana:
         raise HTTPException(status_code=404, detail="Asana not found")
 
-    item = Photo(**payload.model_dump(), user_id=user.id)
+    item = Photo(**payload.model_dump(), user_id=_admin.id)
     db.add(item)
     db.commit()
     db.refresh(item)
@@ -146,7 +170,7 @@ def create_photo_record(
 
 
 @router.delete("/{photo_id}")
-def delete_photo(photo_id: int, db: Annotated[Session, Depends(get_db)], _admin=Depends(get_current_admin)) -> dict:
+def delete_photo(request: Request, photo_id: int, db: Annotated[Session, Depends(get_db)], _admin=Depends(get_current_admin)) -> dict:
     item = db.query(Photo).filter(Photo.id == photo_id).first()
     if not item:
         raise HTTPException(status_code=404, detail="Photo not found")
@@ -163,4 +187,6 @@ def delete_photo(photo_id: int, db: Annotated[Session, Depends(get_db)], _admin=
             pass
     db.delete(item)
     db.commit()
+    ip = request.client.host if request.client else None
+    log_activity(db, _admin.id, "delete", "photo", photo_id, None, ip)
     return {"ok": True}

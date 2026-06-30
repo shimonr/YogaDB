@@ -1,22 +1,28 @@
 import { NavLink, Outlet, useLocation, Link } from "react-router-dom";
 import { useEffect, useState } from "react";
+import {
+  Home, Layers, ArrowRightLeft, Route, Gamepad2, Search,
+  Info, Shield, BookOpen, LogIn,
+} from "lucide-react";
 import { useAuth } from "../lib/auth";
 import { api } from "../lib/api";
 
 const nav = [
-  { to: "/", label: "Home" },
-  { to: "/asanas", label: "Asanas" },
-  { to: "/transitions", label: "Transitions" },
-  { to: "/flows", label: "Flows" },
-  { to: "/games", label: "Games" },
-  { to: "/search", label: "Search" },
-  { to: "/about", label: "About" },
+  { to: "/", label: "Home", icon: Home },
+  { to: "/asanas", label: "Asanas", icon: Layers },
+  { to: "/transitions", label: "Transitions", icon: ArrowRightLeft },
+  { to: "/flows", label: "Flows", icon: Route },
+  { to: "/classes", label: "Classes", icon: BookOpen },
+  { to: "/games", label: "Games", icon: Gamepad2 },
+  { to: "/search", label: "Search", icon: Search },
+  { to: "/about", label: "About", icon: Info },
 ];
 
 const staticLabels: Record<string, string> = {
   asanas: "Asanas",
   transitions: "Transitions",
   flows: "Flows",
+  classes: "Classes",
   games: "Games",
   search: "Search",
   about: "About",
@@ -127,12 +133,36 @@ export function Layout() {
               to={item.to}
               className="block rounded-md px-3 py-2 text-sm hover:bg-sage-100 transition-colors"
             >
-              {collapsed ? item.label.charAt(0) : item.label}
+              {collapsed ? (
+                <div className="relative group flex justify-center">
+                  <item.icon size={20} />
+                  <div className="absolute left-full ml-2 top-1/2 -translate-y-1/2 bg-slate-800 text-white text-xs px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap z-50">
+                    {item.label}
+                  </div>
+                </div>
+              ) : (
+                <div className="flex items-center gap-2">
+                  <item.icon size={16} />
+                  {item.label}
+                </div>
+              )}
             </NavLink>
           ))}
           {user?.role === "admin" && (
             <NavLink to="/admin" className="block rounded-md px-3 py-2 text-sm hover:bg-sage-100">
-              {collapsed ? "A" : "Admin"}
+              {collapsed ? (
+                <div className="relative group flex justify-center">
+                  <Shield size={20} />
+                  <div className="absolute left-full ml-2 top-1/2 -translate-y-1/2 bg-slate-800 text-white text-xs px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap z-50">
+                    Admin
+                  </div>
+                </div>
+              ) : (
+                <div className="flex items-center gap-2">
+                  <Shield size={16} />
+                  Admin
+                </div>
+              )}
             </NavLink>
           )}
         </nav>
