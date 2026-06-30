@@ -25,7 +25,7 @@ export function ClassDetailPage() {
       api.get(`/classes/${id}`),
       api.get("/flows?limit=200"),
       api.get("/transitions?limit=200"),
-      api.get("/asanas?limit=300"),
+      api.get("/asanas?limit=200"),
     ])
       .then(([clsRes, flowRes, transRes, asanaRes]) => {
         setCls(clsRes.data);

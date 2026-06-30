@@ -2,6 +2,7 @@ import { Navigate, Route, Routes } from "react-router-dom";
 import { Layout } from "./components/Layout";
 import { AboutPage } from "./pages/AboutPage";
 import { AdminPage } from "./pages/AdminPage";
+import { AdminUserPage } from "./pages/AdminUserPage";
 import { AsanaDetailPage } from "./pages/AsanaDetailPage";
 import { AsanasPage } from "./pages/AsanasPage";
 import { AuthPage } from "./pages/AuthPage";
@@ -43,6 +44,7 @@ export default function App() {
         <Route path="/about" element={<AboutPage />} />
         <Route path="/auth" element={<AuthPage />} />
         <Route path="/admin" element={<AdminGuard><AdminPage /></AdminGuard>} />
+        <Route path="/admin/user/:id" element={<AdminGuard><AdminUserPage /></AdminGuard>} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Route>
     </Routes>
