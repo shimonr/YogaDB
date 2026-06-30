@@ -1,8 +1,8 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { api } from "../lib/api";
 import { ConfirmDialog } from "../components/ConfirmDialog";
-import type { Asana, Flow, Photo, Transition, User } from "../lib/types";
+import type { Asana, Class, Flow, Photo, Transition, User } from "../lib/types";
 
 type Tab = "overview" | "ranking-log" | "activity-log" | "db-browser" | "sql-query";
 
@@ -11,6 +11,7 @@ function OverviewTab() {
   const [asanas, setAsanas] = useState<Asana[]>([]);
   const [transitions, setTransitions] = useState<Transition[]>([]);
   const [flows, setFlows] = useState<Flow[]>([]);
+  const [classes, setClasses] = useState<Class[]>([]);
   const [photos, setPhotos] = useState<Photo[]>([]);
   const [loading, setLoading] = useState(true);
   const [confirmOpen, setConfirmOpen] = useState(false);
@@ -20,11 +21,11 @@ function OverviewTab() {
     Promise.all([
       api.get("/users"), api.get("/asanas?limit=200"),
       api.get("/transitions?limit=200"), api.get("/flows?limit=200"),
-      api.get("/photos?limit=200"),
+      api.get("/photos?limit=200"), api.get("/classes?limit=200"),
     ])
-      .then(([u, a, t, f, p]) => {
+      .then(([u, a, t, f, p, c]) => {
         setUsers(u.data); setAsanas(a.data); setTransitions(t.data);
-        setFlows(f.data); setPhotos(p.data);
+        setFlows(f.data); setPhotos(p.data); setClasses(c.data);
       })
       .finally(() => setLoading(false));
   }, []);
@@ -46,8 +47,12 @@ function OverviewTab() {
       <h2 className="text-lg font-medium">Users</h2>
       <div className="bg-white rounded-xl border border-sand-100 max-h-72 overflow-auto">
         {users.map((u) => (
-          <div key={u.id} className="border-b last:border-b-0 p-3 flex justify-between">
-            <span>{u.username} ({u.role})</span>
+          <div key={u.id} className="border-b last:border-b-0 p-3 flex justify-between items-center">
+            <div className="flex items-center gap-3">
+              <Link to={`/admin/user/${u.id}`} className="text-sage-700 hover:underline font-medium">{u.username}</Link>
+              <span className="text-xs text-slate-400">{u.email}</span>
+              <span className="text-xs bg-sage-100 text-sage-700 px-2 py-0.5 rounded">{u.role}</span>
+            </div>
             <button className="text-red-600 text-sm"
               onClick={() => askDelete(u.username, async () => {
                 await api.delete(`/users/${u.id}`); setUsers((p) => p.filter((x) => x.id !== u.id));
@@ -95,6 +100,19 @@ function OverviewTab() {
         ))}
       </div>
 
+      <h2 className="text-lg font-medium">Classes</h2>
+      <div className="bg-white rounded-xl border border-sand-100 max-h-72 overflow-auto">
+        {classes.map((c) => (
+          <div key={c.id} className="border-b last:border-b-0 p-3 flex justify-between">
+            <Link to={`/classes/${c.id}`} className="text-sage-700 hover:underline">{c.name}</Link>
+            <button className="text-red-600 text-sm"
+              onClick={() => askDelete(c.name, async () => {
+                await api.delete(`/classes/${c.id}`); setClasses((p) => p.filter((x) => x.id !== c.id));
+              })}>Delete</button>
+          </div>
+        ))}
+      </div>
+
       <h2 className="text-lg font-medium">Photos</h2>
       <div className="bg-white rounded-xl border border-sand-100 max-h-72 overflow-auto">
         {photos.map((p) => (
@@ -119,17 +137,77 @@ function OverviewTab() {
   );
 }
 
+function UserDetailSection({ userId }: { userId: number }) {
+  const [user, setUser] = useState<User | null>(null);
+  const [logs, setLogs] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    setLoading(true);
+    Promise.all([
+      api.get("/users").then((r) => r.data.find((u: User) => u.id === userId)),
+      api.get(`/admin/activity-logs?user_id=${userId}&per_page=20`),
+    ])
+      .then(([u, l]) => { setUser(u); setLogs(l.data); })
+      .finally(() => setLoading(false));
+  }, [userId]);
+
+  if (loading) return <p className="text-slate-500 text-sm">Loading user...</p>;
+  if (!user) return <p className="text-red-600 text-sm">User not found.</p>;
+
+  return (
+    <div className="bg-sage-50 rounded-lg p-4 space-y-2 text-sm">
+      <div className="font-medium text-sage-700">{user.username} ({user.role})</div>
+      <div className="text-slate-500">{user.email}</div>
+      <div className="text-slate-400">Joined: {new Date(user.created_at).toLocaleDateString()}</div>
+      <div className="mt-2 font-medium text-slate-600">Recent Activity:</div>
+      {logs.length === 0 ? (
+        <p className="text-slate-400">No activity recorded.</p>
+      ) : (
+        <div className="space-y-1">
+          {logs.map((l) => (
+            <div key={l.id} className="flex items-center gap-2 text-xs">
+              <span className="text-slate-400">{new Date(l.created_at).toLocaleString()}</span>
+              <span className="font-medium">{l.action}</span>
+              <span>{l.entity_type}</span>
+              {l.entity_id != null && (
+                <Link to={`/${l.entity_type === "photo" ? "photos" : `${l.entity_type}s`}/${l.entity_id}`} className="text-sage-600 hover:underline">
+                  #{l.entity_id}
+                </Link>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+const ENTITY_ROUTES: Record<string, (id: number) => string> = {
+  asana: (id) => `/asanas/${id}`,
+  photo: (id) => `/photos/${id}`,
+  flow: (id) => `/flows/${id}`,
+  transition: (id) => `/transitions/${id}`,
+  class: (id) => `/classes/${id}`,
+};
+
 function RankingLogTab() {
   const [logs, setLogs] = useState<any[]>([]);
+  const [users, setUsers] = useState<User[]>([]);
   const [page, setPage] = useState(1);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     setLoading(true);
-    api.get(`/admin/ranking-logs?page=${page}&per_page=50`)
-      .then((r) => setLogs(r.data))
+    Promise.all([
+      api.get(`/admin/ranking-logs?page=${page}&per_page=50`),
+      api.get("/users"),
+    ])
+      .then(([r, u]) => { setLogs(r.data); setUsers(u.data); })
       .finally(() => setLoading(false));
   }, [page]);
+
+  const userMap = useMemo(() => Object.fromEntries(users.map((u) => [u.id, u.username])), [users]);
 
   if (loading) return <p className="text-slate-500">Loading...</p>;
 
@@ -140,25 +218,30 @@ function RankingLogTab() {
           <thead className="bg-sage-50 sticky top-0">
             <tr>
               <th className="text-left p-2">Time</th>
-              <th className="text-left p-2">User ID</th>
+              <th className="text-left p-2">User</th>
               <th className="text-left p-2">Type</th>
-              <th className="text-left p-2">Target</th>
-              <th className="text-left p-2">Old</th>
-              <th className="text-left p-2">New</th>
+              <th className="text-left p-2">Old Rank</th>
+              <th className="text-left p-2">New Rank</th>
             </tr>
           </thead>
           <tbody>
-            {logs.map((l) => (
-              <tr key={l.id} className="border-b last:border-b-0">
-                <td className="p-2">{new Date(l.created_at).toLocaleString()}</td>
-                <td className="p-2">{l.user_id}</td>
-                <td className="p-2">{l.type}</td>
-                <td className="p-2">{l.target_id}</td>
-                <td className="p-2">{l.old_rank ?? "-"}</td>
-                <td className="p-2">{l.new_rank}</td>
-              </tr>
-            ))}
-            {logs.length === 0 && <tr><td colSpan={6} className="p-3 text-center text-slate-400">No ranking logs yet.</td></tr>}
+            {logs.map((l) => {
+              const route = ENTITY_ROUTES[l.type];
+              return (
+                <tr key={l.id} className="border-b last:border-b-0">
+                  <td className="p-2">{new Date(l.created_at).toLocaleString()}</td>
+                  <td className="p-2">{userMap[l.user_id] || `#${l.user_id}`}</td>
+                  <td className="p-2">
+                    {route ? (
+                      <Link to={route(l.target_id)} className="text-sage-700 hover:underline">{l.type}</Link>
+                    ) : l.type}
+                  </td>
+                  <td className="p-2">{l.old_rank ?? "-"}</td>
+                  <td className="p-2">{l.new_rank}</td>
+                </tr>
+              );
+            })}
+            {logs.length === 0 && <tr><td colSpan={5} className="p-3 text-center text-slate-400">No ranking logs yet.</td></tr>}
           </tbody>
         </table>
       </div>
@@ -173,20 +256,27 @@ function RankingLogTab() {
 
 function ActivityLogTab() {
   const [logs, setLogs] = useState<any[]>([]);
+  const [users, setUsers] = useState<User[]>([]);
   const [page, setPage] = useState(1);
   const [actionFilter, setActionFilter] = useState("");
   const [entityFilter, setEntityFilter] = useState("");
   const [loading, setLoading] = useState(true);
+  const [expandedUser, setExpandedUser] = useState<number | null>(null);
 
   useEffect(() => {
     setLoading(true);
     const params = new URLSearchParams({ page: String(page), per_page: "50" });
     if (actionFilter) params.set("action", actionFilter);
     if (entityFilter) params.set("entity_type", entityFilter);
-    api.get(`/admin/activity-logs?${params}`)
-      .then((r) => setLogs(r.data))
+    Promise.all([
+      api.get(`/admin/activity-logs?${params}`),
+      api.get("/users"),
+    ])
+      .then(([r, u]) => { setLogs(r.data); setUsers(u.data); })
       .finally(() => setLoading(false));
   }, [page, actionFilter, entityFilter]);
+
+  const userMap = useMemo(() => Object.fromEntries(users.map((u) => [u.id, u.username])), [users]);
 
   if (loading) return <p className="text-slate-500">Loading...</p>;
 
@@ -220,27 +310,44 @@ function ActivityLogTab() {
               <th className="text-left p-2">User</th>
               <th className="text-left p-2">Action</th>
               <th className="text-left p-2">Entity</th>
-              <th className="text-left p-2">ID</th>
               <th className="text-left p-2">Details</th>
               <th className="text-left p-2">IP</th>
             </tr>
           </thead>
           <tbody>
-            {logs.map((l) => (
-              <tr key={l.id} className="border-b last:border-b-0">
-                <td className="p-2">{new Date(l.created_at).toLocaleString()}</td>
-                <td className="p-2">{l.user_id ?? "-"}</td>
-                <td className="p-2">{l.action}</td>
-                <td className="p-2">{l.entity_type}</td>
-                <td className="p-2">{l.entity_id ?? "-"}</td>
-                <td className="p-2 max-w-[200px] truncate">{l.details ?? "-"}</td>
-                <td className="p-2">{l.ip_address ?? "-"}</td>
-              </tr>
-            ))}
-            {logs.length === 0 && <tr><td colSpan={7} className="p-3 text-center text-slate-400">No activity logs yet.</td></tr>}
+            {logs.map((l) => {
+              const route = ENTITY_ROUTES[l.entity_type];
+              return (
+                <tr key={l.id} className="border-b last:border-b-0">
+                  <td className="p-2">{new Date(l.created_at).toLocaleString()}</td>
+                  <td className="p-2">
+                    {l.user_id ? (
+                      <button
+                        onClick={() => setExpandedUser(expandedUser === l.user_id ? null : l.user_id)}
+                        className="text-sage-700 hover:underline"
+                      >
+                        {userMap[l.user_id] || `#${l.user_id}`}
+                      </button>
+                    ) : "-"}
+                  </td>
+                  <td className="p-2">{l.action}</td>
+                  <td className="p-2">
+                    {l.entity_id != null && route ? (
+                      <Link to={route(l.entity_id)} className="text-sage-700 hover:underline">
+                        {l.entity_type} #{l.entity_id}
+                      </Link>
+                    ) : l.entity_type}
+                  </td>
+                  <td className="p-2 max-w-[200px] truncate">{l.details ?? "-"}</td>
+                  <td className="p-2">{l.ip_address ?? "-"}</td>
+                </tr>
+              );
+            })}
+            {logs.length === 0 && <tr><td colSpan={6} className="p-3 text-center text-slate-400">No activity logs yet.</td></tr>}
           </tbody>
         </table>
       </div>
+      {expandedUser && <div className="mt-3"><UserDetailSection userId={expandedUser} /></div>}
       <div className="flex justify-center gap-2 mt-3">
         <button onClick={() => setPage((p) => Math.max(1, p - 1))} disabled={page === 1} className="text-sm px-3 py-1 border rounded disabled:opacity-50">Prev</button>
         <span className="text-sm text-slate-500 py-1">Page {page}</span>

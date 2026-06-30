@@ -48,6 +48,7 @@ function Breadcrumbs() {
     const asanaIds = parts.filter((p, i) => /^\d+$/.test(p) && parts[i - 1] === "asanas");
     const transIds = parts.filter((p, i) => /^\d+$/.test(p) && parts[i - 1] === "transitions");
     const flowIds = parts.filter((p, i) => /^\d+$/.test(p) && parts[i - 1] === "flows");
+    const classIds = parts.filter((p, i) => /^\d+$/.test(p) && parts[i - 1] === "classes");
     const photoIds = parts.filter((p, i) => /^\d+$/.test(p) && parts[i - 1] === "photos");
 
     const fetches: Promise<void>[] = [];
@@ -61,6 +62,9 @@ function Breadcrumbs() {
     });
     flowIds.forEach((id) => {
       fetches.push(api.get(`/flows/${id}`).then((r) => { map[`flows:${id}`] = r.data.name; }).catch(() => {}));
+    });
+    classIds.forEach((id) => {
+      fetches.push(api.get(`/classes/${id}`).then((r) => { map[`classes:${id}`] = r.data.name; }).catch(() => {}));
     });
     photoIds.forEach((id) => {
       map[`photos:${id}`] = `Photo #${id}`;
@@ -85,6 +89,8 @@ function Breadcrumbs() {
       label = entityNames[`transitions:${part}`] || `#${part}`;
     } else if (prev === "flows" && /^\d+$/.test(part)) {
       label = entityNames[`flows:${part}`] || `#${part}`;
+    } else if (prev === "classes" && /^\d+$/.test(part)) {
+      label = entityNames[`classes:${part}`] || `#${part}`;
     } else if (prev === "photos" && /^\d+$/.test(part)) {
       label = entityNames[`photos:${part}`] || `#${part}`;
     } else if (prev === "games" && gameLabels[part]) {

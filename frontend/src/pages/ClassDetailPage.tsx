@@ -15,10 +15,12 @@ export function ClassDetailPage() {
   const [rank, setRank] = useState(50);
   const [status, setStatus] = useState("");
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
 
   const refresh = () => {
     if (!id) return;
     setLoading(true);
+    setError("");
     Promise.all([
       api.get(`/classes/${id}`),
       api.get("/flows?limit=200"),
@@ -31,12 +33,14 @@ export function ClassDetailPage() {
         setTransitions(transRes.data);
         setAsanas(asanaRes.data);
       })
+      .catch(() => setError("Failed to load class details."))
       .finally(() => setLoading(false));
   };
 
   useEffect(() => { refresh(); }, [id]);
 
   if (loading) return <p className="text-slate-500">Loading...</p>;
+  if (error) return <p className="text-red-600">{error}</p>;
   if (!cls) return <p className="text-red-600">Class not found.</p>;
 
   const flowMap = Object.fromEntries(flows.map((f) => [f.id, f]));
