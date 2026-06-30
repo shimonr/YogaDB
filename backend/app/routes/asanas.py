@@ -1,12 +1,12 @@
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Query
-from sqlalchemy import or_
+from sqlalchemy import func, or_
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
 from app.core.deps import get_current_admin
-from app.models import Asana
+from app.models import Asana, Photo
 from app.schemas import AsanaBase, AsanaOut
 
 router = APIRouter()
@@ -14,6 +14,33 @@ router = APIRouter()
 
 def _escape_like(value: str) -> str:
     return value.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+
+
+def _cover_photo_ids(db: Session, asana_ids: list[int]) -> dict[int, int]:
+    if not asana_ids:
+        return {}
+    subq = (
+        db.query(
+            Photo.id.label("photo_id"),
+            Photo.asana_id,
+            func.rank().over(partition_by=Photo.asana_id, order_by=Photo.rank.desc()).label("rn"),
+        )
+        .filter(Photo.asana_id.in_(asana_ids))
+        .subquery()
+    )
+    rows = db.query(subq.c.asana_id, subq.c.photo_id).filter(subq.c.rn == 1).all()
+    return {asana_id: photo_id for asana_id, photo_id in rows}
+
+
+def _enrich(asanas: list[Asana], db: Session) -> list[AsanaOut]:
+    ids = [a.id for a in asanas]
+    cover_map = _cover_photo_ids(db, ids)
+    return [
+        AsanaOut.model_validate(a, from_attributes=True).model_copy(
+            update={"cover_photo_id": cover_map.get(a.id)}
+        )
+        for a in asanas
+    ]
 
 
 @router.get("", response_model=list[AsanaOut])
@@ -25,7 +52,7 @@ def get_asanas(
     difficulty_level: int | None = Query(default=None, ge=1, le=5),
     skip: int = Query(default=0, ge=0),
     limit: int = Query(default=50, ge=1, le=200),
-) -> list[Asana]:
+) -> list[AsanaOut]:
     query = db.query(Asana)
     if q:
         term = f"%{_escape_like(q.strip())}%"
@@ -44,20 +71,22 @@ def get_asanas(
         query = query.filter(Asana.category == category)
     if difficulty_level:
         query = query.filter(Asana.difficulty_level == difficulty_level)
-    return query.order_by(Asana.rank.desc()).offset(skip).limit(limit).all()
+    asanas = query.order_by(Asana.rank.desc()).offset(skip).limit(limit).all()
+    return _enrich(asanas, db)
 
 
 @router.get("/top", response_model=list[AsanaOut])
-def top_asanas(db: Annotated[Session, Depends(get_db)], limit: int = Query(default=10, ge=1, le=50)) -> list[Asana]:
-    return db.query(Asana).order_by(Asana.rank.desc()).limit(limit).all()
+def top_asanas(db: Annotated[Session, Depends(get_db)], limit: int = Query(default=10, ge=1, le=50)) -> list[AsanaOut]:
+    asanas = db.query(Asana).order_by(Asana.rank.desc()).limit(limit).all()
+    return _enrich(asanas, db)
 
 
 @router.get("/{asana_id}", response_model=AsanaOut)
-def get_asana(asana_id: int, db: Annotated[Session, Depends(get_db)]) -> Asana:
+def get_asana(asana_id: int, db: Annotated[Session, Depends(get_db)]) -> AsanaOut:
     item = db.query(Asana).filter(Asana.id == asana_id).first()
     if not item:
         raise HTTPException(status_code=404, detail="Asana not found")
-    return item
+    return _enrich([item], db)[0]
 
 
 @router.post("", response_model=AsanaOut)

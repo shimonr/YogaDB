@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 import { api } from "../lib/api";
 import type { Asana } from "../lib/types";
 import { RankStars } from "../components/RankStars";
+import { photoFileUrl } from "../lib/photoUrl";
 
 export function AsanasPage() {
   const [top, setTop] = useState<Asana[]>([]);
@@ -35,6 +36,13 @@ export function AsanasPage() {
       <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
         {list.map((a) => (
           <Link key={a.id} to={`/asanas/${a.id}`} className="bg-white p-4 rounded-xl border border-sand-100 hover:shadow-sm">
+            {a.cover_photo_id && (
+              <img
+                src={photoFileUrl(a.cover_photo_id)}
+                alt={a.english_name}
+                className="w-full aspect-square object-cover rounded mb-2"
+              />
+            )}
             <h3 className="font-medium">{a.english_name}</h3>
             <p className="text-sm text-slate-500">{a.sanskrit_name}</p>
             <p className="text-xs mt-1">{a.type} - {a.category}</p>

@@ -43,6 +43,11 @@ def create_transition(
     db: Annotated[Session, Depends(get_db)],
     _admin=Depends(get_current_admin),
 ) -> Transition:
+    if payload.start_asana_id == payload.end_asana_id:
+        raise HTTPException(status_code=400, detail="Start and end pose must be different")
+    existing = db.query(Transition).filter(Transition.name.ilike(payload.name)).first()
+    if existing:
+        raise HTTPException(status_code=400, detail="A transition with this name already exists")
     item = Transition(**payload.model_dump())
     db.add(item)
     db.commit()
@@ -68,6 +73,11 @@ def update_transition(
     item = db.query(Transition).filter(Transition.id == transition_id).first()
     if not item:
         raise HTTPException(status_code=404, detail="Transition not found")
+    if payload.start_asana_id == payload.end_asana_id:
+        raise HTTPException(status_code=400, detail="Start and end pose must be different")
+    duplicate = db.query(Transition).filter(Transition.name.ilike(payload.name), Transition.id != transition_id).first()
+    if duplicate:
+        raise HTTPException(status_code=400, detail="A transition with this name already exists")
     for key, value in payload.model_dump().items():
         setattr(item, key, value)
     db.add(item)

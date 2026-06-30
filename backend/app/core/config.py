@@ -19,6 +19,9 @@ class Settings(BaseSettings):
     cors_origins: str = "http://localhost:5173"
     asanas_images_dir: str | None = None
     asanas_csv_path: str | None = None
+    cloudinary_cloud_name: str = ""
+    cloudinary_api_key: str = ""
+    cloudinary_api_secret: str = ""
     model_config = SettingsConfigDict(
         env_file=str(_ENV_FILE) if _ENV_FILE.is_file() else None,
         env_file_encoding="utf-8",

@@ -1,7 +1,7 @@
 from datetime import datetime
 from typing import Literal
 
-from pydantic import BaseModel, ConfigDict, EmailStr, Field
+from pydantic import BaseModel, ConfigDict, EmailStr, Field, field_validator, field_validator
 
 
 class ORMBase(BaseModel):
@@ -43,6 +43,7 @@ class AsanaBase(BaseModel):
 
 class AsanaOut(AsanaBase, ORMBase):
     id: int
+    cover_photo_id: int | None = None
 
 
 class PhotoCreate(BaseModel):
@@ -74,18 +75,27 @@ class TransitionOut(TransitionBase, ORMBase):
     id: int
 
 
-class FlowBase(BaseModel):
+class FlowCreate(BaseModel):
     name: str = Field(min_length=1, max_length=150)
-    transition_1_id: int
-    transition_2_id: int
-    transition_3_id: int
-    transition_4_id: int
+    transition_ids: list[int] = Field(min_length=2, max_length=20)
     difficulty_level: int = Field(ge=1, le=5)
     rank: int = Field(default=50, ge=1, le=100)
 
 
-class FlowOut(FlowBase, ORMBase):
+class FlowOut(ORMBase):
     id: int
+    name: str
+    transition_ids: list[int]
+    difficulty_level: int
+    rank: int
+
+    @field_validator("transition_ids", mode="before")
+    @classmethod
+    def parse_transition_ids(cls, v):
+        if isinstance(v, str):
+            import json
+            return json.loads(v)
+        return v
 
 
 class RankingCreate(BaseModel):

@@ -10,6 +10,6 @@ class Photo(Base):
     type: Mapped[str] = mapped_column(String(20), nullable=False)
     asana_id: Mapped[int] = mapped_column(ForeignKey("asanas.id", ondelete="CASCADE"), nullable=False, index=True)
     user_id: Mapped[int | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
-    local_path: Mapped[str] = mapped_column(String(255), nullable=False)
+    local_path: Mapped[str] = mapped_column(String(500), nullable=False)
     original_url: Mapped[str | None] = mapped_column(String(500))
     rank: Mapped[int] = mapped_column(Integer, default=50, nullable=False)

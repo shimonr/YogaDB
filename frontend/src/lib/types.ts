@@ -18,6 +18,7 @@ export type Asana = {
   type: string;
   category: string;
   rank: number;
+  cover_photo_id?: number | null;
 };
 
 export type Transition = {
@@ -32,10 +33,7 @@ export type Transition = {
 export type Flow = {
   id: number;
   name: string;
-  transition_1_id: number;
-  transition_2_id: number;
-  transition_3_id: number;
-  transition_4_id: number;
+  transition_ids: number[];
   difficulty_level: number;
   rank: number;
 };

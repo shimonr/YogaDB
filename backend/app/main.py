@@ -8,7 +8,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.core.config import get_settings
 from app.core.database import Base, SessionLocal, engine
 from app.core.security import get_password_hash
-from app.models import Asana, Photo, User
+from app.models import Asana, Flow, Photo, Ranking, Transition, User
 from app.routes import asanas, auth, flows, photos, ranking, transitions, users
 
 logger = logging.getLogger(__name__)
@@ -20,6 +20,19 @@ def _seed_if_empty() -> None:
     db = SessionLocal()
     try:
         if db.query(User).first() is not None:
+            return
+
+        if settings.env == "production" and not settings.asanas_csv_file:
+            db.add(
+                User(
+                    username="shimon",
+                    email="shimon@example.com",
+                    password_hash=get_password_hash("adm"),
+                    role="admin",
+                )
+            )
+            db.commit()
+            logger.info("Production mode — created admin user only (shimon / adm).")
             return
 
         csv_path = settings.asanas_csv_file

@@ -5,7 +5,7 @@ from sqlalchemy.orm import sessionmaker
 
 from app.core.database import Base, get_db
 from app.main import app
-from app.models import Asana, User
+from app.models import Asana, Photo, Ranking, User
 from app.core.security import get_password_hash
 from app.routes import auth as auth_module
 
@@ -59,6 +59,28 @@ def setup_db():
             type="standing",
             category="balance",
             rank=60,
+        )
+    )
+    db.add(
+        Photo(
+            id=1,
+            type="download",
+            asana_id=1,
+            user_id=None,
+            local_path="/fake/path/1.jpg",
+            original_url="https://example.com/mountain.jpg",
+            rank=50,
+        )
+    )
+    db.add(
+        Photo(
+            id=2,
+            type="download",
+            asana_id=2,
+            user_id=None,
+            local_path="/fake/path/2.jpg",
+            original_url=None,
+            rank=50,
         )
     )
     db.commit()

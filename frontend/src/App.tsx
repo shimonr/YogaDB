@@ -5,9 +5,13 @@ import { AdminPage } from "./pages/AdminPage";
 import { AsanaDetailPage } from "./pages/AsanaDetailPage";
 import { AsanasPage } from "./pages/AsanasPage";
 import { AuthPage } from "./pages/AuthPage";
+import { FlowDetailPage } from "./pages/FlowDetailPage";
 import { FlowsPage } from "./pages/FlowsPage";
+import { GamesPage } from "./pages/GamesPage";
 import { HomePage } from "./pages/HomePage";
+import { PhotoDetailPage } from "./pages/PhotoDetailPage";
 import { SearchPage } from "./pages/SearchPage";
+import { TransitionDetailPage } from "./pages/TransitionDetailPage";
 import { TransitionsPage } from "./pages/TransitionsPage";
 import { useAuth } from "./lib/auth";
 
@@ -25,7 +29,12 @@ export default function App() {
         <Route path="/asanas" element={<AsanasPage />} />
         <Route path="/asanas/:id" element={<AsanaDetailPage />} />
         <Route path="/transitions" element={<TransitionsPage />} />
+        <Route path="/transitions/:id" element={<TransitionDetailPage />} />
         <Route path="/flows" element={<FlowsPage />} />
+        <Route path="/flows/:id" element={<FlowDetailPage />} />
+        <Route path="/photos/:id" element={<PhotoDetailPage />} />
+        <Route path="/games" element={<GamesPage />} />
+        <Route path="/games/:gameType" element={<GamesPage />} />
         <Route path="/search" element={<SearchPage />} />
         <Route path="/about" element={<AboutPage />} />
         <Route path="/auth" element={<AuthPage />} />

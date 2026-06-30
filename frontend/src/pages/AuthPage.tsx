@@ -20,8 +20,9 @@ export function AuthPage() {
         await login(username, password);
       }
       navigate("/");
-    } catch {
-      setError("Authentication failed.");
+    } catch (err: any) {
+      const msg = err?.response?.data?.detail || "Authentication failed.";
+      setError(Array.isArray(msg) ? msg.map((e: any) => e.msg).join(", ") : String(msg));
     }
   };
 
