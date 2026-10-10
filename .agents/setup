@@ -1,0 +1,56 @@
+#!/usr/bin/env bash
+# Amp orb setup: install the toolchain and dependencies. Must stay idempotent.
+set -euo pipefail
+
+repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+cd "$repo_root"
+
+step() {
+  local label="$1"
+  shift
+  local start=$SECONDS
+  echo "==> $label"
+  "$@"
+  echo "    done in $((SECONDS - start))s"
+}
+
+backend_deps() {
+  cd "$repo_root/backend"
+  # .python-version pins 3.12; uv downloads it once and reuses it on warm runs.
+  if [[ ! -x .venv/bin/python ]] || ! .venv/bin/python -c 'import sys; sys.exit(sys.version_info[:2] != (3, 12))'; then
+    uv venv --clear --python "$(cat "$repo_root/.python-version")" .venv
+  fi
+  uv pip install --python .venv/bin/python -r requirements-dev.txt
+  if [[ ! -f .env ]]; then
+    cp -- .env.example .env
+    # Point photo serving at the images committed under data/asanas.
+    sed -i "s|^ASANAS_IMAGES_DIR=.*|ASANAS_IMAGES_DIR=$repo_root/data/asanas|" .env
+  fi
+}
+
+frontend_deps() {
+  cd "$repo_root/frontend"
+  npm ci --no-audit --no-fund --prefer-offline --no-update-notifier
+  if [[ ! -f .env ]]; then
+    cp -- .env.example .env
+  fi
+}
+
+orb_agent_notes() {
+  local notes="$HOME/.config/amp/AGENTS.md"
+  local marker="# YogaDB orb notes"
+  mkdir -p "$(dirname "$notes")"
+  if ! grep -Fqx "$marker" "$notes" 2>/dev/null; then
+    cat >> "$notes" <<EOF
+
+$marker
+- Backend Python 3.12 venv is at \`backend/.venv\` (installed with uv from \`backend/requirements-dev.txt\`). Run tests with \`cd backend && .venv/bin/python -m pytest tests -q\`.
+- Frontend deps are installed in \`frontend/node_modules\`. Build with \`cd frontend && npm run build\`.
+- \`backend/.env\` and \`frontend/.env\` were created from their \`.env.example\` templates; \`ASANAS_IMAGES_DIR\` points at \`data/asanas\`. No asana CSV is in the repo, so the API seeds only the admin user (\`shimon\` / \`adm\`).
+EOF
+  fi
+}
+
+step "Backend: Python venv + dependencies" backend_deps
+step "Frontend: npm dependencies" frontend_deps
+step "Orb agent notes" orb_agent_notes
