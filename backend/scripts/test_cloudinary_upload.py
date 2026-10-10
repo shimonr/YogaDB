@@ -70,7 +70,7 @@ def main():
             # Update DB
             photo.local_path = url
             db.commit()
-            print(f"    DB updated [OK]\n")
+            print("    DB updated [OK]\n")
 
         print("Done! 2 images uploaded to Cloudinary.")
 

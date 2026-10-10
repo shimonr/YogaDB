@@ -7,6 +7,8 @@ import re
 import unicodedata
 from pathlib import Path
 
+from app.services.photo_storage import to_stored_path
+
 IMAGE_SUFFIXES = {".jpg", ".jpeg", ".png", ".webp", ".gif"}
 APOSTROPHE_CHARS = "'`´''‚‛"
 HYPHEN_CHARS = "-‐‑‒–—―"
@@ -130,7 +132,7 @@ def discover_photos_for_asana(
         photos.append(
             {
                 "type": "download",
-                "local_path": str(image_path.resolve()),
+                "local_path": to_stored_path(image_path),
                 "original_url": reference_urls.get(relative),
                 "rank": 50,
             }

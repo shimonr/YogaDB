@@ -1,19 +1,31 @@
+import json
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
 from app.core.deps import get_current_admin
-from app.models import Class, User
+from app.models import Class, Flow, User
 from app.schemas import ClassCreate, ClassOut
 
 router = APIRouter()
 
 
+def _require_flows(db: Session, flow_ids: list[int]) -> None:
+    found = {row[0] for row in db.query(Flow.id).filter(Flow.id.in_(flow_ids))}
+    missing = sorted(set(flow_ids) - found)
+    if missing:
+        raise HTTPException(status_code=400, detail=f"Unknown flow ids: {missing}")
+
+
 @router.get("", response_model=list[ClassOut])
-def list_classes(db: Annotated[Session, Depends(get_db)], limit: int = 100) -> list[Class]:
-    return db.query(Class).order_by(Class.rank.desc()).limit(limit).all()
+def list_classes(
+    db: Annotated[Session, Depends(get_db)],
+    skip: int = Query(default=0, ge=0),
+    limit: int = Query(default=100, ge=1, le=200),
+) -> list[Class]:
+    return db.query(Class).order_by(Class.rank.desc(), Class.id).offset(skip).limit(limit).all()
 
 
 @router.get("/top", response_model=list[ClassOut])
@@ -35,7 +47,7 @@ def create_class(
     db: Annotated[Session, Depends(get_db)],
     _admin: Annotated[User, Depends(get_current_admin)],
 ) -> Class:
-    import json
+    _require_flows(db, payload.flow_ids)
     item = Class(
         name=payload.name,
         description=payload.description,
@@ -56,10 +68,10 @@ def update_class(
     db: Annotated[Session, Depends(get_db)],
     _admin: Annotated[User, Depends(get_current_admin)],
 ) -> Class:
-    import json
     item = db.query(Class).filter(Class.id == class_id).first()
     if not item:
         raise HTTPException(status_code=404, detail="Class not found")
+    _require_flows(db, payload.flow_ids)
     item.name = payload.name
     item.description = payload.description
     item.flow_ids = json.dumps(payload.flow_ids)

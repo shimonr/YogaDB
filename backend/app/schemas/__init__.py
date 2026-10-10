@@ -1,7 +1,7 @@
 from datetime import datetime
 from typing import Literal
 
-from pydantic import BaseModel, ConfigDict, EmailStr, Field, field_validator, field_validator
+from pydantic import BaseModel, ConfigDict, EmailStr, Field, field_validator
 
 
 class ORMBase(BaseModel):
@@ -12,6 +12,13 @@ class UserCreate(BaseModel):
     username: str = Field(min_length=3, max_length=50)
     email: EmailStr
     password: str = Field(min_length=8)
+
+    @field_validator("password")
+    @classmethod
+    def password_fits_bcrypt(cls, v: str) -> str:
+        if len(v.encode("utf-8")) > 72:
+            raise ValueError("Password must be at most 72 bytes")
+        return v
 
 
 class UserOut(ORMBase):
@@ -49,6 +56,7 @@ class AsanaOut(AsanaBase, ORMBase):
 class PhotoCreate(BaseModel):
     type: str = Field(pattern=r"^(upload|download)$")
     asana_id: int
+    local_path: str = Field(min_length=1, max_length=500)
     original_url: str | None = None
     rank: int = Field(default=50, ge=1, le=100)
 
@@ -58,7 +66,6 @@ class PhotoOut(ORMBase):
     type: str
     asana_id: int
     user_id: int | None = None
-    local_path: str
     original_url: str | None = None
     rank: int
 

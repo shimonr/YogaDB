@@ -1,18 +1,23 @@
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Query
+from sqlalchemy import func
 from sqlalchemy.orm import Session
 
-from app.core.database import get_db
+from app.core.database import LIKE_ESCAPE, contains_pattern, get_db
 from app.core.deps import get_current_admin
-from app.models import Transition
+from app.models import Asana, Transition
 from app.schemas import TransitionBase, TransitionOut
 
 router = APIRouter()
 
 
-def _escape_like(value: str) -> str:
-    return value.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+def _validate_poses(db: Session, payload: TransitionBase) -> None:
+    if payload.start_asana_id == payload.end_asana_id:
+        raise HTTPException(status_code=400, detail="Start and end pose must be different")
+    ids = {payload.start_asana_id, payload.end_asana_id}
+    if db.query(Asana.id).filter(Asana.id.in_(ids)).count() != len(ids):
+        raise HTTPException(status_code=400, detail="Start or end pose does not exist")
 
 
 @router.get("", response_model=list[TransitionOut])
@@ -24,9 +29,8 @@ def list_transitions(
 ) -> list[Transition]:
     query = db.query(Transition)
     if q:
-        term = f"%{_escape_like(q.strip())}%"
-        query = query.filter(Transition.name.ilike(term))
-    return query.order_by(Transition.rank.desc()).offset(skip).limit(limit).all()
+        query = query.filter(Transition.name.ilike(contains_pattern(q), escape=LIKE_ESCAPE))
+    return query.order_by(Transition.rank.desc(), Transition.id).offset(skip).limit(limit).all()
 
 
 @router.get("/top", response_model=list[TransitionOut])
@@ -43,9 +47,8 @@ def create_transition(
     db: Annotated[Session, Depends(get_db)],
     _admin=Depends(get_current_admin),
 ) -> Transition:
-    if payload.start_asana_id == payload.end_asana_id:
-        raise HTTPException(status_code=400, detail="Start and end pose must be different")
-    existing = db.query(Transition).filter(Transition.name.ilike(payload.name)).first()
+    _validate_poses(db, payload)
+    existing = db.query(Transition).filter(func.lower(Transition.name) == payload.name.lower()).first()
     if existing:
         raise HTTPException(status_code=400, detail="A transition with this name already exists")
     item = Transition(**payload.model_dump())
@@ -73,9 +76,8 @@ def update_transition(
     item = db.query(Transition).filter(Transition.id == transition_id).first()
     if not item:
         raise HTTPException(status_code=404, detail="Transition not found")
-    if payload.start_asana_id == payload.end_asana_id:
-        raise HTTPException(status_code=400, detail="Start and end pose must be different")
-    duplicate = db.query(Transition).filter(Transition.name.ilike(payload.name), Transition.id != transition_id).first()
+    _validate_poses(db, payload)
+    duplicate = db.query(Transition).filter(func.lower(Transition.name) == payload.name.lower(), Transition.id != transition_id).first()
     if duplicate:
         raise HTTPException(status_code=400, detail="A transition with this name already exists")
     for key, value in payload.model_dump().items():

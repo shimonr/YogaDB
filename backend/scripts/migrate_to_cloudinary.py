@@ -15,6 +15,7 @@ from app.core.config import get_settings  # noqa: E402
 from app.core.database import SessionLocal  # noqa: E402
 from app.models import Photo  # noqa: E402
 from app.services.cloudinary_service import upload_image  # noqa: E402
+from app.services.photo_storage import resolve_photo_file  # noqa: E402
 
 PATH_REMAPS = [
     ("C:/Users/shimo/Documents/CURSOR/sandbox1/data/asanas", "D:/DEV/YogaDB/data/asanas"),
@@ -50,7 +51,7 @@ def migrate() -> None:
         start = time.time()
 
         for i, photo in enumerate(photos):
-            local_path = _remap_path(photo.local_path)
+            local_path = resolve_photo_file(photo.local_path) or _remap_path(photo.local_path)
             if not local_path.is_file():
                 skipped += 1
                 continue

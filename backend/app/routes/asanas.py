@@ -4,16 +4,12 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy import func, or_
 from sqlalchemy.orm import Session
 
-from app.core.database import get_db
+from app.core.database import LIKE_ESCAPE, contains_pattern, get_db
 from app.core.deps import get_current_admin
 from app.models import Asana, Photo
 from app.schemas import AsanaBase, AsanaOut
 
 router = APIRouter()
-
-
-def _escape_like(value: str) -> str:
-    return value.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
 
 
 def _cover_photo_ids(db: Session, asana_ids: list[int]) -> dict[int, int]:
@@ -55,14 +51,19 @@ def get_asanas(
 ) -> list[AsanaOut]:
     query = db.query(Asana)
     if q:
-        term = f"%{_escape_like(q.strip())}%"
+        term = contains_pattern(q)
         query = query.filter(
             or_(
-                Asana.english_name.ilike(term),
-                Asana.sanskrit_name.ilike(term),
-                Asana.alt_name_1.ilike(term),
-                Asana.alt_name_2.ilike(term),
-                Asana.benefits.ilike(term),
+                *(
+                    column.ilike(term, escape=LIKE_ESCAPE)
+                    for column in (
+                        Asana.english_name,
+                        Asana.sanskrit_name,
+                        Asana.alt_name_1,
+                        Asana.alt_name_2,
+                        Asana.benefits,
+                    )
+                )
             )
         )
     if type:
@@ -71,7 +72,7 @@ def get_asanas(
         query = query.filter(Asana.category == category)
     if difficulty_level:
         query = query.filter(Asana.difficulty_level == difficulty_level)
-    asanas = query.order_by(Asana.rank.desc()).offset(skip).limit(limit).all()
+    asanas = query.order_by(Asana.rank.desc(), Asana.id).offset(skip).limit(limit).all()
     return _enrich(asanas, db)
 
 

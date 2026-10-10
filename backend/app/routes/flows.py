@@ -4,12 +4,19 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 
-from app.core.database import get_db
+from app.core.database import LIKE_ESCAPE, contains_pattern, get_db
 from app.core.deps import get_current_admin
-from app.models import Flow
+from app.models import Flow, Transition
 from app.schemas import FlowCreate, FlowOut
 
 router = APIRouter()
+
+
+def _require_transitions(db: Session, transition_ids: list[int]) -> None:
+    found = {row[0] for row in db.query(Transition.id).filter(Transition.id.in_(transition_ids))}
+    missing = sorted(set(transition_ids) - found)
+    if missing:
+        raise HTTPException(status_code=400, detail=f"Unknown transition ids: {missing}")
 
 
 def _row_to_out(row: Flow) -> dict:
@@ -31,8 +38,8 @@ def list_flows(
 ) -> list[dict]:
     query = db.query(Flow)
     if q:
-        query = query.filter(Flow.name.ilike(f"%{q}%"))
-    rows = query.order_by(Flow.rank.desc()).offset(skip).limit(limit).all()
+        query = query.filter(Flow.name.ilike(contains_pattern(q), escape=LIKE_ESCAPE))
+    rows = query.order_by(Flow.rank.desc(), Flow.id).offset(skip).limit(limit).all()
     return [_row_to_out(r) for r in rows]
 
 
@@ -47,6 +54,7 @@ def top_flows(
 
 @router.post("", response_model=FlowOut)
 def create_flow(payload: FlowCreate, db: Annotated[Session, Depends(get_db)], _admin=Depends(get_current_admin)) -> dict:
+    _require_transitions(db, payload.transition_ids)
     item = Flow(
         name=payload.name,
         transition_ids=json.dumps(payload.transition_ids),
@@ -77,6 +85,7 @@ def update_flow(
     item = db.query(Flow).filter(Flow.id == flow_id).first()
     if not item:
         raise HTTPException(status_code=404, detail="Flow not found")
+    _require_transitions(db, payload.transition_ids)
     item.name = payload.name
     item.transition_ids = json.dumps(payload.transition_ids)
     item.difficulty_level = payload.difficulty_level

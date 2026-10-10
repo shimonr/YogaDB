@@ -2,19 +2,31 @@ import secrets
 from functools import lru_cache
 from pathlib import Path
 
-from pydantic import field_validator
+from pydantic import model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 # Always load backend/.env regardless of process working directory (portable after move).
 _BACKEND_DIR = Path(__file__).resolve().parents[2]
 _ENV_FILE = _BACKEND_DIR / ".env"
 
+DEFAULT_ADMIN_PASSWORD = "adm"
+
+
+def _resolve(value: str | None) -> Path | None:
+    """Resolve a configured path; relative paths are relative to backend/ (where .env lives)."""
+    if not value:
+        return None
+    path = Path(value).expanduser()
+    if not path.is_absolute():
+        path = _BACKEND_DIR / path
+    return path.resolve()
+
 
 class Settings(BaseSettings):
     app_name: str = "Yoga DB API"
     env: str = "development"
     debug: bool = False
-    secret_key: str = secrets.token_hex(32)
+    secret_key: str = ""
     access_token_expire_minutes: int = 60
     database_url: str = "sqlite:///./yogadb.db"
     cors_origins: str = "http://localhost:5173"
@@ -23,14 +35,7 @@ class Settings(BaseSettings):
     cloudinary_cloud_name: str = ""
     cloudinary_api_key: str = ""
     cloudinary_api_secret: str = ""
-    admin_password: str = "adm"
-
-    @field_validator("secret_key")
-    @classmethod
-    def validate_secret_key(cls, v: str, info) -> str:
-        if info.data.get("env") == "production" and len(v) < 64:
-            raise ValueError("SECRET_KEY must be at least 64 characters in production")
-        return v
+    admin_password: str = DEFAULT_ADMIN_PASSWORD
 
     model_config = SettingsConfigDict(
         env_file=str(_ENV_FILE) if _ENV_FILE.is_file() else None,
@@ -39,17 +44,28 @@ class Settings(BaseSettings):
         extra="ignore",
     )
 
+    @model_validator(mode="after")
+    def _check_secret_key(self) -> "Settings":
+        if self.is_production:
+            # 32+ characters fits both `openssl rand -hex 32` and Render's generated values (44 chars).
+            if len(self.secret_key) < 32:
+                raise ValueError("SECRET_KEY must be set to at least 32 random characters in production")
+        elif not self.secret_key:
+            # Development convenience only: tokens stop working when the process restarts.
+            self.secret_key = secrets.token_hex(32)
+        return self
+
+    @property
+    def is_production(self) -> bool:
+        return self.env == "production"
+
     @property
     def asanas_images_path(self) -> Path | None:
-        if not self.asanas_images_dir:
-            return None
-        return Path(self.asanas_images_dir).expanduser().resolve()
+        return _resolve(self.asanas_images_dir)
 
     @property
     def asanas_csv_file(self) -> Path | None:
-        if not self.asanas_csv_path:
-            return None
-        return Path(self.asanas_csv_path).expanduser().resolve()
+        return _resolve(self.asanas_csv_path)
 
     @property
     def cors_origins_list(self) -> list[str]:

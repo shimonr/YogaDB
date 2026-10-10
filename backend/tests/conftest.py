@@ -5,8 +5,7 @@ from sqlalchemy.orm import sessionmaker
 
 from app.core.database import Base, get_db
 from app.main import app
-from app.models import Asana, Photo, Ranking, User
-from app.core.security import get_password_hash
+from app.models import Asana, Photo, User
 from app.routes import auth as auth_module
 
 SQLALCHEMY_DATABASE_URL = "sqlite:///./test_yogadb.db"
@@ -97,7 +96,7 @@ def client():
 
 @pytest.fixture
 def admin_headers(client):
-    r = client.post(
+    client.post(
         "/api/auth/register",
         json={"username": "admin_user", "email": "admin@example.com", "password": "admin1234"},
     )
@@ -114,10 +113,21 @@ def admin_headers(client):
 
 @pytest.fixture
 def user_headers(client):
-    r = client.post(
+    client.post(
         "/api/auth/register",
         json={"username": "regular_user", "email": "user@example.com", "password": "user12345"},
     )
     token_r = client.post("/api/auth/login", data={"username": "regular_user", "password": "user12345"})
     token = token_r.json()["access_token"]
     return {"Authorization": f"Bearer {token}"}
+
+
+@pytest.fixture
+def images_dir(tmp_path, monkeypatch):
+    """Point ASANAS_IMAGES_DIR at a temporary folder for the duration of a test."""
+    from app.core.config import get_settings
+
+    monkeypatch.setenv("ASANAS_IMAGES_DIR", str(tmp_path))
+    get_settings.cache_clear()
+    yield tmp_path
+    get_settings.cache_clear()

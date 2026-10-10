@@ -1,4 +1,8 @@
-import pytest
+from pathlib import Path
+
+from app.models import Photo
+from app.services.photo_storage import UPLOAD_ROOT
+from tests.conftest import TestingSessionLocal
 
 
 class TestAuth:
@@ -81,6 +85,18 @@ class TestAuth:
         assert r.status_code == 422
 
 
+    def test_register_password_over_72_bytes_rejected(self, client):
+        r = client.post(
+            "/api/auth/register",
+            json={"username": "longpw", "email": "longpw@example.com", "password": "é" * 37},
+        )
+        assert r.status_code == 422
+
+    def test_login_password_over_72_bytes_fails_cleanly(self, client):
+        r = client.post("/api/auth/login", data={"username": "nobody", "password": "a" * 100})
+        assert r.status_code == 400
+
+
 class TestAsanas:
     def test_list_asanas(self, client):
         r = client.get("/api/asanas")
@@ -115,6 +131,16 @@ class TestAsanas:
         r = client.get("/api/asanas?q=Tadasana")
         assert r.status_code == 200
         assert len(r.json()) >= 1
+
+    def test_search_treats_wildcards_literally(self, client, admin_headers):
+        payload = {
+            "english_name": "Half_Moon", "sanskrit_name": "Ardha Chandrasana", "difficulty_level": 3,
+            "benefits": "Balance", "is_classic": True, "type": "standing", "category": "balance",
+        }
+        assert client.post("/api/asanas", json=payload, headers=admin_headers).status_code == 200
+        names = [a["english_name"] for a in client.get("/api/asanas", params={"q": "Half_Moon"}).json()]
+        assert names == ["Half_Moon"]
+        assert client.get("/api/asanas", params={"q": "%"}).json() == []
 
     def test_filter_asanas_by_type(self, client):
         r = client.get("/api/asanas?type=standing")
@@ -291,14 +317,14 @@ class TestRanking:
         assert r.status_code == 404
 
     def test_two_users_rank_same_target(self, client):
-        r1 = client.post(
+        client.post(
             "/api/auth/register",
             json={"username": "ranker1", "email": "r1@test.com", "password": "secret1234"},
         )
         t1 = client.post("/api/auth/login", data={"username": "ranker1", "password": "secret1234"}).json()["access_token"]
         h1 = {"Authorization": f"Bearer {t1}"}
 
-        r2 = client.post(
+        client.post(
             "/api/auth/register",
             json={"username": "ranker2", "email": "r2@test.com", "password": "secret1234"},
         )
@@ -386,7 +412,7 @@ class TestTransitions:
             },
             headers=admin_headers,
         )
-        assert r.status_code in (200, 400, 404, 422)
+        assert r.status_code == 400
 
     def test_get_transition_not_found(self, client):
         r = client.get("/api/transitions/99999")
@@ -518,6 +544,24 @@ class TestFlows:
         )
         assert r.status_code == 403
 
+    def test_create_flow_unknown_transition(self, client, admin_headers):
+        self._create_transitions(client, admin_headers)
+        r = client.post(
+            "/api/flows",
+            json={"name": "Ghost Flow", "transition_ids": [1, 999], "difficulty_level": 1, "rank": 50},
+            headers=admin_headers,
+        )
+        assert r.status_code == 400
+
+    def test_search_flows_treats_underscore_literally(self, client, admin_headers):
+        self._create_transitions(client, admin_headers)
+        client.post(
+            "/api/flows",
+            json={"name": "Morning Flow", "transition_ids": [1, 2], "difficulty_level": 1, "rank": 50},
+            headers=admin_headers,
+        )
+        assert client.get("/api/flows", params={"q": "_"}).json() == []
+
     def test_get_flow_not_found(self, client):
         r = client.get("/api/flows/99999")
         assert r.status_code == 404
@@ -551,8 +595,64 @@ class TestPhotos:
     def test_photo_out_has_all_fields(self, client):
         r = client.get("/api/photos/by-asana/1")
         body = r.json()[0]
-        for field in ["id", "type", "asana_id", "user_id", "local_path", "original_url", "rank"]:
+        for field in ["id", "type", "asana_id", "user_id", "original_url", "rank"]:
             assert field in body, f"Missing field: {field}"
+
+
+    JPEG = b"\xff\xd8\xff\xe0" + b"0" * 32
+
+    def test_upload_rank_must_be_in_range(self, client, user_headers):
+        r = client.post(
+            "/api/photos/upload",
+            data={"asana_id": "1", "rank": "99999"},
+            files={"file": ("pose.jpg", self.JPEG, "image/jpeg")},
+            headers=user_headers,
+        )
+        assert r.status_code == 422
+
+    def test_upload_is_served_and_deleted_with_record(self, client, user_headers, admin_headers):
+        r = client.post(
+            "/api/photos/upload",
+            data={"asana_id": "1"},
+            files={"file": ("pose.jpg", self.JPEG, "image/jpeg")},
+            headers=user_headers,
+        )
+        assert r.status_code == 201
+        photo_id = r.json()["id"]
+        db = TestingSessionLocal()
+        stored = db.get(Photo, photo_id).local_path
+        db.close()
+        assert not Path(stored).is_absolute()
+        path = UPLOAD_ROOT.parent / stored
+        try:
+            assert client.get(f"/api/photos/{photo_id}/file").content == self.JPEG
+            assert client.delete(f"/api/photos/{photo_id}", headers=admin_headers).status_code == 200
+            assert not path.exists()
+        finally:
+            path.unlink(missing_ok=True)
+
+    def test_deleting_imported_photo_keeps_source_file(self, client, admin_headers, images_dir):
+        source = images_dir / "Tree_Pose" / "Tree_Pose_01.jpg"
+        source.parent.mkdir()
+        source.write_bytes(self.JPEG)
+        r = client.post(
+            "/api/photos/create",
+            json={"type": "download", "asana_id": 2, "local_path": "Tree_Pose/Tree_Pose_01.jpg"},
+            headers=admin_headers,
+        )
+        assert r.status_code == 201
+        photo_id = r.json()["id"]
+        assert client.get(f"/api/photos/{photo_id}/file").content == self.JPEG
+        assert client.delete(f"/api/photos/{photo_id}", headers=admin_headers).status_code == 200
+        assert source.is_file()
+
+    def test_create_photo_rejects_path_outside_photo_folders(self, client, admin_headers):
+        r = client.post(
+            "/api/photos/create",
+            json={"type": "download", "asana_id": 1, "local_path": "/etc/passwd"},
+            headers=admin_headers,
+        )
+        assert r.status_code == 400
 
 
 class TestUsers:
@@ -577,6 +677,53 @@ class TestUsers:
         r3 = client.get("/api/users", headers=admin_headers)
         usernames = [u["username"] for u in r3.json()]
         assert "to_delete" not in usernames
+
+
+    def test_delete_user_with_rankings_recomputes_average(self, client, admin_headers, user_headers):
+        client.post("/api/ranking/rank", json={"type": "asana", "target_id": 1, "rank": 90}, headers=admin_headers)
+        client.post("/api/ranking/rank", json={"type": "asana", "target_id": 1, "rank": 10}, headers=user_headers)
+        assert client.get("/api/asanas/1").json()["rank"] == 50
+        users = {u["username"]: u["id"] for u in client.get("/api/users", headers=admin_headers).json()}
+        r = client.delete(f"/api/users/{users['regular_user']}", headers=admin_headers)
+        assert r.status_code == 200
+        assert client.get("/api/asanas/1").json()["rank"] == 90
+
+    def test_admin_cannot_delete_self(self, client, admin_headers):
+        users = {u["username"]: u["id"] for u in client.get("/api/users", headers=admin_headers).json()}
+        r = client.delete(f"/api/users/{users['admin_user']}", headers=admin_headers)
+        assert r.status_code == 400
+
+
+class TestAdminDatabase:
+    def test_list_tables(self, client, admin_headers):
+        r = client.get("/api/admin/tables", headers=admin_headers)
+        assert r.status_code == 200
+        assert {"asanas", "users", "photos"} <= set(r.json())
+
+    def test_browse_unknown_table(self, client, admin_headers):
+        r = client.get("/api/admin/table/nope", headers=admin_headers)
+        assert r.status_code == 404
+
+    def test_select_with_created_at_column(self, client, admin_headers):
+        r = client.post("/api/admin/query", json={"sql": "SELECT username, created_at FROM users"}, headers=admin_headers)
+        assert r.status_code == 200
+        assert r.json()["count"] >= 1
+
+    def test_query_cannot_write(self, client, admin_headers):
+        r = client.post(
+            "/api/admin/query",
+            json={"sql": "WITH x AS (SELECT 1) DELETE FROM asanas"},
+            headers=admin_headers,
+        )
+        assert r.status_code == 400
+        assert len(client.get("/api/asanas").json()) == 2
+        # The read-only switch must not leak into later requests on the same connection.
+        r = client.post("/api/ranking/rank", json={"type": "asana", "target_id": 1, "rank": 70}, headers=admin_headers)
+        assert r.status_code == 200
+
+    def test_multiple_statements_rejected(self, client, admin_headers):
+        r = client.post("/api/admin/query", json={"sql": "SELECT 1; DROP TABLE users"}, headers=admin_headers)
+        assert r.status_code == 400
 
 
 class TestHealth:
