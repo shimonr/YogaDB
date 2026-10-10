@@ -7,15 +7,25 @@ services:
       - ./backend/.env
     volumes:
       - ./data:/data
-      - ./backend/yogadb.db:/app/yogadb.db
+      - db:/app/db
     environment:
+      # Keep the SQLite file in a named volume; a bind-mounted file that doesn't exist yet
+      # would be created as a directory.
+      DATABASE_URL: sqlite:////app/db/yogadb.db
       ASANAS_IMAGES_DIR: /data/asanas
+      ASANAS_CSV_PATH: /data/asanas/yoga_asanas.sample.csv
+      CORS_ORIGINS: http://localhost:4173
 
   frontend:
-    build: ./frontend
+    build:
+      context: ./frontend
+      args:
+        # nginx proxies /api to the backend, so the browser talks to one origin.
+        VITE_API_BASE_URL: /api
     ports:
       - "4173:80"
-    environment:
-      VITE_API_BASE_URL: http://backend:8000/api
     depends_on:
       - backend
+
+volumes:
+  db:

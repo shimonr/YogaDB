@@ -11,10 +11,10 @@ fi
 # shellcheck disable=SC1091
 source .venv/bin/activate
 python -m pip install --upgrade pip
-pip install -r requirements.txt
+pip install -r requirements-dev.txt
 if [[ ! -f .env ]]; then
   cp .env.example .env
-  echo "    Created backend/.env from .env.example — edit ASANAS_IMAGES_DIR"
+  echo "    Created backend/.env from .env.example (loads the sample asanas)"
 fi
 
 echo "==> Frontend: npm install"
@@ -26,8 +26,7 @@ fi
 
 echo ""
 echo "Setup complete."
-echo "  1. Edit backend/.env  (set ASANAS_IMAGES_DIR)"
-echo "  2. python scripts/init_db.py --images-dir <your-asanas-folder>"
-echo "  3. cd backend && source .venv/bin/activate && python -m uvicorn app.main:app --reload"
-echo "  4. cd frontend && npm run dev"
+echo "  1. Optional: point ASANAS_CSV_PATH / ASANAS_IMAGES_DIR in backend/.env at your own data"
+echo "  2. cd backend && source .venv/bin/activate && python -m uvicorn app.main:app --reload"
+echo "  3. cd frontend && npm run dev"
 echo "See docs/DEVELOPMENT.md for full instructions."

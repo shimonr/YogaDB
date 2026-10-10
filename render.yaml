@@ -3,8 +3,10 @@ services:
     name: yogadb-api
     runtime: python
     plan: free
+    rootDir: backend
     buildCommand: pip install -r requirements.txt
-    startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT
+    # Render's proxy sets X-Forwarded-For; trusting it gives the rate limiter real client IPs.
+    startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT --proxy-headers --forwarded-allow-ips='*'
     envVars:
       - key: DATABASE_URL
         fromDatabase:
@@ -12,6 +14,8 @@ services:
           property: connectionString
       - key: SECRET_KEY
         generateValue: true
+      - key: ADMIN_PASSWORD
+        sync: false
       - key: ENV
         value: production
       - key: CORS_ORIGINS

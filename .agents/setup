@@ -20,11 +20,9 @@ backend_deps() {
   if [[ ! -x .venv/bin/python ]] || ! .venv/bin/python -c 'import sys; sys.exit(sys.version_info[:2] != (3, 12))'; then
     uv venv --clear --python "$(cat "$repo_root/.python-version")" .venv
   fi
-  uv pip install --python .venv/bin/python -r requirements-dev.txt
+  uv pip sync --python .venv/bin/python requirements-dev.txt
   if [[ ! -f .env ]]; then
     cp -- .env.example .env
-    # Point photo serving at the images committed under data/asanas.
-    sed -i "s|^ASANAS_IMAGES_DIR=.*|ASANAS_IMAGES_DIR=$repo_root/data/asanas|" .env
   fi
 }
 
@@ -45,8 +43,8 @@ orb_agent_notes() {
 
 $marker
 - Backend Python 3.12 venv is at \`backend/.venv\` (installed with uv from \`backend/requirements-dev.txt\`). Run tests with \`cd backend && .venv/bin/python -m pytest tests -q\`.
-- Frontend deps are installed in \`frontend/node_modules\`. Build with \`cd frontend && npm run build\`.
-- \`backend/.env\` and \`frontend/.env\` were created from their \`.env.example\` templates; \`ASANAS_IMAGES_DIR\` points at \`data/asanas\`. No asana CSV is in the repo, so the API seeds only the admin user (\`shimon\` / \`adm\`).
+- Frontend deps are installed in \`frontend/node_modules\`. Check with \`cd frontend && npm run lint && npm run build\`.
+- \`backend/.env\` and \`frontend/.env\` were created from their \`.env.example\` templates. On first start the API migrates the SQLite DB and seeds the 10-pose sample CSV plus the admin user (\`shimon\` / \`adm\`).
 EOF
   fi
 }

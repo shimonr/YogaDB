@@ -11,7 +11,7 @@ Full-stack web app for exploring yoga **asanas**, **transitions**, and **flows**
 | Backend | Python 3.11+, FastAPI, SQLAlchemy, Alembic, Pydantic, JWT, bcrypt |
 | Frontend | React 18, Vite, TypeScript, Tailwind CSS, React Router, Axios |
 | Database | SQLite (local) / PostgreSQL (production) |
-| Data | Local image folders (you provide paths) |
+| Data | Asana CSV + image folders (a 10-pose sample CSV is included) |
 
 ## Quick start
 
@@ -27,15 +27,14 @@ Full-stack web app for exploring yoga **asanas**, **transitions**, and **flows**
 ./scripts/setup.sh
 ```
 
-1. Edit `backend/.env` — set `ASANAS_IMAGES_DIR` to your asana images folder (see `data/asanas/README.md`).
-2. Load database: `python scripts/init_db.py --images-dir "C:/path/to/your/asanas"`
-3. Backend: `cd backend` → activate venv → `python -m uvicorn app.main:app --reload`
-4. Frontend: `cd frontend` → `npm run dev`
-5. Open http://localhost:5173 (API docs: http://localhost:8000/docs)
+1. Optional: point `ASANAS_CSV_PATH` / `ASANAS_IMAGES_DIR` in `backend/.env` at your own asana data (see `data/asanas/README.md`). The defaults load the bundled sample.
+2. Backend: `cd backend` → activate venv → `python -m uvicorn app.main:app --reload` (applies migrations and seeds an empty database)
+3. Frontend: `cd frontend` → `npm run dev`
+4. Open http://localhost:5173 (API docs: http://localhost:8000/docs)
 
 **Verify:** `python scripts/check_setup.py`
 
-**Default admin:** `shimon` / `adm`
+**Default admin:** `shimon` / `adm` locally (`ADMIN_PASSWORD`; must be set in production)
 
 ## Documentation
 
@@ -61,7 +60,8 @@ docs/             Extended documentation
 
 | File | Purpose |
 |------|---------|
-| `backend/requirements.txt` | Python dependencies (`pip install -r`) |
+| `backend/requirements.txt` | Pinned runtime Python dependencies (generated from `requirements.in`) |
+| `backend/requirements-dev.txt` | Pinned runtime + test/lint dependencies (generated from `requirements-dev.in`) |
 | `frontend/package.json` | Node dependencies (`npm install`) |
 | `frontend/package-lock.json` | Locked npm versions (commit with project) |
 | `backend/.env.example` | Backend env template |
@@ -70,19 +70,21 @@ docs/             Extended documentation
 ## Tests
 
 ```bash
-cd backend
-python -m pytest tests -q
+cd backend && python -m pytest tests -q && ruff check .
+cd frontend && npm run lint && npm run build
 ```
+
+CI (`.github/workflows/ci.yml`) runs these plus `alembic check`.
 
 ## Docker (optional)
 
-1. Copy `backend/.env.example` → `backend/.env` and set `ASANAS_IMAGES_DIR=/data/asanas`
-2. `docker compose up --build`
+1. Copy `backend/.env.example` → `backend/.env` (compose overrides the database and data paths)
+2. `docker compose up --build`, then open http://localhost:4173
 
 ## Deployment (free tier)
 
-- **Backend:** Render / Railway — `uvicorn app.main:app --host 0.0.0.0 --port $PORT`
+- **Backend:** Render (`render.yaml`) or Fly (`backend/fly.toml`) — set `ENV=production`, `SECRET_KEY`, `ADMIN_PASSWORD`, `DATABASE_URL`, `CORS_ORIGINS`; migrations run on startup
 - **Frontend:** Vercel / Netlify — build `frontend/`, set `VITE_API_BASE_URL`
-- **Database:** Neon / Supabase — set `DATABASE_URL`, run `init_db.py` with image volume mounted
+- **Database:** Neon / Supabase — set `DATABASE_URL`; `backend/scripts/seed_production.py` copies a local SQLite database
 
 Details in [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md) and [docs/ENVIRONMENT.md](docs/ENVIRONMENT.md).

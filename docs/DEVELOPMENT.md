@@ -53,7 +53,7 @@ cd backend
 python -m venv .venv
 # Windows: .venv\Scripts\activate
 # Unix:    source .venv/bin/activate
-pip install -r requirements.txt
+pip install -r requirements-dev.txt
 copy .env.example .env   # or cp on Unix
 
 cd ../frontend
@@ -67,10 +67,12 @@ Edit `backend/.env` (copy from `backend/.env.example`):
 
 | Variable | Purpose |
 |----------|---------|
-| `SECRET_KEY` | JWT signing (change in production) |
+| `SECRET_KEY` | JWT signing (required in production) |
+| `ADMIN_PASSWORD` | Password for the seeded admin (required in production) |
 | `DATABASE_URL` | Default `sqlite:///./yogadb.db` (file lives in `backend/`) |
 | `CORS_ORIGINS` | Frontend origin, e.g. `http://localhost:5173` |
-| `ASANAS_IMAGES_DIR` | **Required for photo serving.** Absolute path to your asana image folders |
+| `ASANAS_CSV_PATH` | Asana inventory CSV; defaults to the bundled sample |
+| `ASANAS_IMAGES_DIR` | Root of the asana image folders; relative paths resolve from `backend/` |
 
 Edit `frontend/.env`:
 
@@ -80,38 +82,19 @@ Edit `frontend/.env`:
 
 See [ENVIRONMENT.md](./ENVIRONMENT.md) for the full list.
 
-### 3. Add asana images
+### 3. Asana data (optional)
 
-Folder layout (see `data/asanas/README.md`):
+The defaults load `data/asanas/yoga_asanas.sample.csv` (10 poses, no images). To use your own inventory, point `ASANAS_CSV_PATH` at the CSV and `ASANAS_IMAGES_DIR` at the images folder, one subfolder per pose named after its English name (`Mountain_Pose/Mountain_Pose_01.jpg`). See `data/asanas/README.md`.
 
-```
-<ASANAS_IMAGES_DIR>/
-  1-mountain-pose/
-    1-mountain-pose-1.jpg
-    1-mountain-pose-2.jpg
-  2-downward-dog/
-    ...
-```
+### 4. Database
 
-Subfolder names: `<id>-<slug>` (e.g. `42-warrior-ii`).
-
-Optional metadata: `asanas.json` in that folder or `data/asanas/asanas.json` (see `data/asanas/asanas.metadata.example.json`).
-
-### 4. Initialize database
-
-From **repo root** (not `backend/`):
+The backend applies Alembic migrations on startup and, when there are no users yet, imports the CSV and creates the admin user. To re-import asanas into an existing database, from the **repo root**:
 
 ```bash
-python scripts/init_db.py --images-dir "C:/full/path/to/your/asanas"
+python scripts/init_db.py --csv-path "C:/path/to/yoga_asanas.csv" --images-dir "C:/path/to/asana_images"
 ```
 
-Or, if `ASANAS_IMAGES_DIR` is already set in `backend/.env`:
-
-```bash
-python scripts/init_db.py
-```
-
-Creates `backend/yogadb.db` with asanas, photos, and admin user.
+Without flags it uses `ASANAS_CSV_PATH` / `ASANAS_IMAGES_DIR` from `backend/.env`.
 
 ### 5. Run the stack
 
@@ -136,48 +119,45 @@ npm run dev
 | http://localhost:8000/docs | API docs |
 | http://localhost:8000/health | Health check |
 
-**Default admin:** `shimon` / `adm`
+**Default admin:** `shimon` / `adm` (`ADMIN_PASSWORD`)
 
 ### 6. Verify setup
 
 ```bash
 python scripts/check_setup.py
-cd backend && python -m pytest tests -q
+cd backend && python -m pytest tests -q && ruff check .
+cd frontend && npm run lint && npm run build
 ```
 
 ## Moving or renaming the project
 
 1. Copy or move the entire project folder (include `backend/`, `frontend/`, `scripts/`, `data/`, `docs/`, lockfiles).
 2. Do **not** rely on copied `node_modules/` or `.venv/` — rerun `scripts/setup.ps1` or `setup.sh`.
-3. Update `backend/.env`:
-   - Set `ASANAS_IMAGES_DIR` to the **new absolute path** to your images folder.
+3. Update `backend/.env` only if `ASANAS_IMAGES_DIR` / `ASANAS_CSV_PATH` are absolute paths that moved.
 4. Update `frontend/.env` if API URL changed.
-5. Re-run `python scripts/init_db.py --images-dir "<new-path>"` if the DB was not copied or paths in `photos.local_path` no longer exist.
+5. Re-run `python scripts/init_db.py` if the DB was not copied (photo paths are stored relative to the images folder, so a copied DB keeps working).
 6. Run `python scripts/check_setup.py`.
 
 See [MOVING_PROJECT.md](./MOVING_PROJECT.md) for a checklist.
 
 ## What is implemented
 
-- **Backend:** FastAPI, SQLAlchemy, JWT auth, bcrypt, Alembic scaffold, SQLite default
-- **Models:** Asanas, Users, Transitions, Flows, Ranking, Photos
-- **APIs:** Auth, asanas (search/pagination), transitions, flows, photos (multipart upload + file serve), ranking, admin users
-- **Frontend:** Home, Asanas, detail, Transitions, Flows, Search, About, Auth, Admin panel
-- **Data:** Loaded from local image folders via `scripts/init_db.py` (no remote fetch script)
+- **Backend:** FastAPI, SQLAlchemy, JWT auth, bcrypt, Alembic migrations (applied on startup), SQLite default
+- **Models:** Asanas, Users, Transitions, Flows, Classes, Ranking, Photos, ranking and activity logs
+- **APIs:** Auth, asanas (search/pagination), transitions, flows, classes, photos (multipart upload + file serve), ranking, admin (users, logs, read-only DB browser and SQL console)
+- **Frontend:** Home, Asanas, detail, Transitions, Flows, Classes, Games, Search, About, Auth, Admin panel
+- **Data:** Asana CSV + image folders, imported on first startup or via `scripts/init_db.py`
 
 ## Common issues
 
 | Problem | Fix |
 |---------|-----|
-| Photos 403/404 in browser | Set `ASANAS_IMAGES_DIR` in `backend/.env` to the folder containing image files; paths must stay under `data/` or `ASANAS_IMAGES_DIR` |
-| Empty asana list | Run `init_db.py` with a valid `--images-dir` containing `<id>-<slug>/` subfolders |
+| Photos 404 in browser | Set `ASANAS_IMAGES_DIR` in `backend/.env` to the folder containing the image subfolders; files must be under `data/` or `ASANAS_IMAGES_DIR` |
+| Empty asana list | Check `ASANAS_CSV_PATH`, then run `python scripts/init_db.py` (startup only imports into an empty database) |
 | CORS errors | Add frontend URL to `CORS_ORIGINS` in `backend/.env` |
-| Login fails after move | Re-run `init_db.py` to reset admin password, or register a new user |
+| Login fails after move | Re-run `init_db.py` to reset the admin password to `ADMIN_PASSWORD`, or register a new user |
+| `429 Too many …` | Login/registration is limited to 5 attempts per IP per 5 minutes; restart the API to reset |
 
 ## Next steps (optional enhancements)
 
-- Alembic migrations workflow (`alembic upgrade head`)
-- Postgres in production (Neon/Supabase) + update `DATABASE_URL`
-- Rate limiting middleware
-- Frontend photo upload UI on asana detail page
-- CI workflow (pytest + `npm run build`)
+- Shared rate-limit store (the limiter is in memory, per process)

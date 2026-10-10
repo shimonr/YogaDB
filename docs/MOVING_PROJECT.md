@@ -4,7 +4,7 @@
 
 Copy this entire directory tree:
 
-- [ ] `backend/` (source, `requirements.txt`, `alembic/`, tests)
+- [ ] `backend/` (source, `requirements*.txt`, `alembic/`, tests)
 - [ ] `frontend/` (source, `package.json`, `package-lock.json`)
 - [ ] `scripts/`
 - [ ] `data/` (your asana images and/or metadata)
@@ -28,7 +28,7 @@ Copy this entire directory tree:
    ```
 
 3. **Update `backend/.env`:**
-   - `ASANAS_IMAGES_DIR` → new absolute path to image folder
+   - `ASANAS_IMAGES_DIR` / `ASANAS_CSV_PATH` → only if they are absolute paths outside the repo that moved (relative paths need no change)
    - `SECRET_KEY` → keep or rotate
    - `CORS_ORIGINS` → unchanged for local dev
 
@@ -36,10 +36,10 @@ Copy this entire directory tree:
    - `VITE_API_BASE_URL` → unchanged for local dev
 
 5. **Database:**
-   - If you copied `backend/yogadb.db` and image paths are still valid → no action
-   - If image paths broke (different drive/path) → re-run:
+   - If you copied `backend/yogadb.db` → no action; photo paths are stored relative to `ASANAS_IMAGES_DIR` and `data/`
+   - Databases created before relative paths were introduced hold absolute paths; if those broke, re-run:
      ```bash
-     python scripts/init_db.py --images-dir "<new-absolute-path>"
+     python scripts/init_db.py --images-dir "<new-path>"
      ```
 
 6. **Verify:**
@@ -60,4 +60,4 @@ Copy this entire directory tree:
 - Photo files are served only if they exist under:
   - `<repo>/data/`, or
   - `ASANAS_IMAGES_DIR` from config
-- `init_db.py` stores **absolute** `local_path` values in the database; update `ASANAS_IMAGES_DIR` and re-init if those paths change.
+- Photo paths are stored **relative** to `ASANAS_IMAGES_DIR` (imported images) or `data/` (uploads), so moving either folder only needs the config updated.

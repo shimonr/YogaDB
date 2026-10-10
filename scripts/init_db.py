@@ -1,14 +1,15 @@
-"""Create schema and load asanas + photos from CSV inventory and image folders.
+"""Create or upgrade the schema and load asanas + photos from a CSV inventory and image folders.
 
 Expected layout (from yoga-image-collector):
 
   <ASANAS_IMAGES_DIR>/
-    Mountain_Pose/
+    Mountain_Pose/          # folder name = English name with spaces/hyphens as underscores
       Mountain_Pose_01.jpg
       ...
     reference.csv          # optional — used for original_url on photos
 
-Asana metadata comes from <ASANAS_CSV_PATH> (yoga_asanas.csv by default).
+Asana metadata comes from <ASANAS_CSV_PATH> (see data/asanas/yoga_asanas.sample.csv).
+Defaults come from backend/.env; relative paths there are relative to backend/.
 
 Usage:
   python scripts/init_db.py
@@ -28,41 +29,33 @@ os.environ.setdefault("DATABASE_URL", f"sqlite:///{_default_sqlite.as_posix()}")
 
 sys.path.insert(0, str(ROOT / "backend"))
 
-from app.core.database import Base, SessionLocal, engine
-from app.core.security import get_password_hash
-from app.models import Asana, Photo, User
-from app.services.asana_import import build_asana_payload
-
-
-def _load_backend_dotenv() -> None:
-    env_path = ROOT / "backend" / ".env"
-    if not env_path.is_file():
-        return
-    for line in env_path.read_text(encoding="utf-8").splitlines():
-        line = line.strip()
-        if not line or line.startswith("#") or "=" not in line:
-            continue
-        key, _, value = line.partition("=")
-        os.environ.setdefault(key.strip(), value.strip())
+from app.core.config import get_settings  # noqa: E402
+from app.core.database import SessionLocal  # noqa: E402
+from app.core.migrations import upgrade_database  # noqa: E402
+from app.core.security import get_password_hash  # noqa: E402
+from app.models import Asana, Photo, User  # noqa: E402
+from app.services.asana_import import build_asana_payload  # noqa: E402
 
 
 def parse_args() -> argparse.Namespace:
+    settings = get_settings()
     parser = argparse.ArgumentParser(description="Initialize Yoga DB from CSV inventory and image folders.")
     parser.add_argument(
         "--csv-path",
-        default=os.environ.get("ASANAS_CSV_PATH"),
-        help="Path to the asana inventory CSV (or set ASANAS_CSV_PATH).",
+        type=Path,
+        default=settings.asanas_csv_file,
+        help="Path to the asana inventory CSV (default: ASANAS_CSV_PATH from backend/.env).",
     )
     parser.add_argument(
         "--images-dir",
-        default=os.environ.get("ASANAS_IMAGES_DIR"),
-        help="Path to the root folder containing asana image subfolders (or set ASANAS_IMAGES_DIR).",
+        type=Path,
+        default=settings.asanas_images_path,
+        help="Root folder of asana image subfolders (default: ASANAS_IMAGES_DIR from backend/.env).",
     )
     return parser.parse_args()
 
 
 def main() -> None:
-    _load_backend_dotenv()
     args = parse_args()
     if not args.csv_path:
         raise SystemExit(
@@ -75,15 +68,17 @@ def main() -> None:
             "Example: python scripts/init_db.py --images-dir D:/DEV/yoga-image-collector/asana_images"
         )
 
-    csv_path = Path(args.csv_path).expanduser().resolve()
-    images_dir = Path(args.images_dir).expanduser().resolve()
-    os.environ["ASANAS_CSV_PATH"] = str(csv_path)
+    csv_path = args.csv_path.expanduser().resolve()
+    images_dir = args.images_dir.expanduser().resolve()
+    # Photo paths are stored relative to the images folder, so make it the configured one.
     os.environ["ASANAS_IMAGES_DIR"] = str(images_dir)
+    get_settings.cache_clear()
+    settings = get_settings()
 
     payload = build_asana_payload(csv_path, images_dir)
     with_photos = sum(1 for item in payload if item.get("photos"))
 
-    Base.metadata.create_all(bind=engine)
+    upgrade_database()
 
     db = SessionLocal()
     try:
@@ -104,7 +99,8 @@ def main() -> None:
             db.add(asana)
             db.flush()
 
-            db.query(Photo).filter(Photo.asana_id == asana.id, Photo.user_id.is_(None)).delete()
+            # Replace imported photos only; user uploads stay even after their uploader is deleted.
+            db.query(Photo).filter(Photo.asana_id == asana.id, Photo.type == "download").delete()
             for photo in item.get("photos", []):
                 db.add(
                     Photo(
@@ -122,19 +118,19 @@ def main() -> None:
             admin = User(
                 username="shimon",
                 email="shimon@example.com",
-                password_hash=get_password_hash("adm"),
+                password_hash=get_password_hash(settings.admin_password),
                 role="admin",
             )
             db.add(admin)
         else:
             admin.role = "admin"
-            admin.password_hash = get_password_hash("adm")
+            admin.password_hash = get_password_hash(settings.admin_password)
 
         db.commit()
         print(f"Loaded {len(payload)} asanas from {csv_path}")
         print(f"Matched photos for {with_photos} asanas under {images_dir}")
-        print("Database initialized with asanas, photos, and admin user (shimon / adm).")
-        print(f"Ensure backend/.env contains:")
+        print("Database initialized with asanas, photos, and admin user 'shimon' (password: ADMIN_PASSWORD).")
+        print("Ensure backend/.env contains:")
         print(f"  ASANAS_CSV_PATH={csv_path}")
         print(f"  ASANAS_IMAGES_DIR={images_dir}")
     finally:
