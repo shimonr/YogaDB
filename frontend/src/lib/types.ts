@@ -43,7 +43,6 @@ export type Photo = {
   type: string;
   asana_id: number;
   user_id?: number | null;
-  local_path: string;
   original_url?: string | null;
   rank: number;
 };

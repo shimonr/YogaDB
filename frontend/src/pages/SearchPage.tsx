@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
-import { api } from "../lib/api";
+import { fetchAll } from "../lib/api";
 import type { Asana, Transition } from "../lib/types";
 
 export function SearchPage() {
@@ -19,10 +19,10 @@ export function SearchPage() {
   const [filterRankMax, setFilterRankMax] = useState(100);
 
   useEffect(() => {
-    Promise.all([api.get("/asanas?limit=200"), api.get("/transitions?limit=200")])
-      .then(([aRes, tRes]) => {
-        setAsanas(aRes.data);
-        setTransitions(tRes.data);
+    Promise.all([fetchAll<Asana>("/asanas"), fetchAll<Transition>("/transitions")])
+      .then(([allAsanas, allTransitions]) => {
+        setAsanas(allAsanas);
+        setTransitions(allTransitions);
       })
       .catch(() => setError("Failed to load search data."))
       .finally(() => setLoading(false));
@@ -30,7 +30,6 @@ export function SearchPage() {
 
   const categories = useMemo(() => [...new Set(asanas.map((a) => a.category))].sort(), [asanas]);
   const types = useMemo(() => [...new Set(asanas.map((a) => a.type))].sort(), [asanas]);
-  const maxRank = useMemo(() => Math.max(...asanas.map((a) => a.rank), 50), [asanas]);
 
   const toggleDifficulty = (d: number) => {
     setFilterDifficulty((prev) =>

@@ -1,7 +1,7 @@
 import { useEffect, useState, useCallback, useRef } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
-import { api } from "../lib/api";
-import type { Asana, Photo } from "../lib/types";
+import { fetchAll } from "../lib/api";
+import type { Asana } from "../lib/types";
 import { photoFileUrl } from "../lib/photoUrl";
 
 type GameType = "match_en" | "match_sa" | "name_sa_from_img" | "name_sa_from_en";
@@ -32,7 +32,7 @@ interface GameAsana {
   id: number;
   english_name: string;
   sanskrit_name: string;
-  photoIds: number[];
+  photoId: number;
 }
 
 export function GamesPage() {
@@ -46,23 +46,14 @@ export function GamesPage() {
   const selected = (gameType && GAMES.find((g) => g.type === gameType)?.type) || null;
 
   useEffect(() => {
-    api.get("/asanas?limit=200").then(async (r) => {
-      const asanas: Asana[] = r.data;
-      const valid = asanas.filter(
-        (a) => !isPlaceholder(a.english_name) && !isPlaceholder(a.sanskrit_name)
+    fetchAll<Asana>("/asanas").then((asanas) => {
+      setAllAsanas(
+        asanas.flatMap((a) =>
+          a.cover_photo_id && !isPlaceholder(a.english_name) && !isPlaceholder(a.sanskrit_name)
+            ? [{ id: a.id, english_name: a.english_name, sanskrit_name: a.sanskrit_name, photoId: a.cover_photo_id }]
+            : []
+        )
       );
-      const withPhotos = await Promise.all(
-        valid.map(async (a) => {
-          try {
-            const res = await api.get(`/photos/by-asana/${a.id}`);
-            const photos: Photo[] = res.data;
-            return { ...a, photoIds: photos.map((p) => p.id) };
-          } catch {
-            return { ...a, photoIds: [] as number[] };
-          }
-        })
-      );
-      setAllAsanas(withPhotos.filter((a) => a.photoIds.length > 0));
     }).finally(() => setLoading(false));
   }, []);
 
@@ -167,7 +158,7 @@ function MatchGame({ asanas, mode, onResult }: { asanas: GameAsana[]; mode: "mat
       </p>
       <div className="grid grid-cols-4 gap-3">
         {round.images.map((a) => {
-          const photoId = a.photoIds[0];
+          const photoId = a.photoId;
           const isMatched = matched.has(a.id);
           const isSelected = selectedImage === a.id;
           return (
@@ -256,7 +247,7 @@ function SanskritFromImageGame({ asanas, onResult }: { asanas: GameAsana[]; onRe
   };
 
   if (!round) return null;
-  const photoId = round.asana.photoIds[0];
+  const photoId = round.asana.photoId;
 
   return (
     <div className="space-y-4">

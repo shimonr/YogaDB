@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
-import { api } from "../lib/api";
+import { api, fetchAll } from "../lib/api";
 import { ConfirmDialog } from "../components/ConfirmDialog";
 import type { Asana, Class, Flow, Photo, Transition, User } from "../lib/types";
 
@@ -16,17 +16,19 @@ function OverviewTab() {
   const [loading, setLoading] = useState(true);
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [confirmTarget, setConfirmTarget] = useState<{ label: string; fn: () => Promise<void> } | null>(null);
+  const [error, setError] = useState("");
 
   useEffect(() => {
     Promise.all([
-      api.get("/users"), api.get("/asanas?limit=200"),
-      api.get("/transitions?limit=200"), api.get("/flows?limit=200"),
-      api.get("/photos?limit=200"), api.get("/classes?limit=200"),
+      api.get("/users"), fetchAll<Asana>("/asanas"),
+      fetchAll<Transition>("/transitions"), fetchAll<Flow>("/flows"),
+      fetchAll<Photo>("/photos"), fetchAll<Class>("/classes"),
     ])
       .then(([u, a, t, f, p, c]) => {
-        setUsers(u.data); setAsanas(a.data); setTransitions(t.data);
-        setFlows(f.data); setPhotos(p.data); setClasses(c.data);
+        setUsers(u.data); setAsanas(a); setTransitions(t);
+        setFlows(f); setPhotos(p); setClasses(c);
       })
+      .catch(() => setError("Failed to load admin data."))
       .finally(() => setLoading(false));
   }, []);
 
@@ -36,7 +38,13 @@ function OverviewTab() {
 
   const doDelete = async () => {
     if (!confirmTarget) return;
-    try { await confirmTarget.fn(); } catch {}
+    setError("");
+    try {
+      await confirmTarget.fn();
+    } catch (err: any) {
+      const detail = err?.response?.data?.detail;
+      setError(`Could not delete "${confirmTarget.label}": ${typeof detail === "string" ? detail : "request failed"}`);
+    }
     setConfirmOpen(false); setConfirmTarget(null);
   };
 
@@ -44,6 +52,7 @@ function OverviewTab() {
 
   return (
     <div className="space-y-3">
+      {error && <p className="text-red-600 text-sm">{error}</p>}
       <h2 className="text-lg font-medium">Users</h2>
       <div className="bg-white rounded-xl border border-sand-100 max-h-72 overflow-auto">
         {users.map((u) => (
@@ -366,16 +375,22 @@ function DBBrowserTab() {
   const [page, setPage] = useState(1);
   const [loading, setLoading] = useState(true);
   const [tableLoading, setTableLoading] = useState(false);
+  const [error, setError] = useState("");
 
   useEffect(() => {
-    api.get("/admin/tables").then((r) => { setTables(r.data); setLoading(false); });
+    api.get("/admin/tables")
+      .then((r) => setTables(r.data))
+      .catch(() => setError("Failed to load tables."))
+      .finally(() => setLoading(false));
   }, []);
 
   useEffect(() => {
     if (!selected) return;
     setTableLoading(true);
+    setError("");
     api.get(`/admin/table/${selected}?page=${page}&per_page=50`)
       .then((r) => { setColumns(r.data.columns); setRows(r.data.rows); setTotal(r.data.total); })
+      .catch(() => setError(`Failed to load ${selected}.`))
       .finally(() => setTableLoading(false));
   }, [selected, page]);
 
@@ -383,6 +398,7 @@ function DBBrowserTab() {
 
   return (
     <div>
+      {error && <p className="text-red-600 text-sm mb-2">{error}</p>}
       <select value={selected} onChange={(e) => { setSelected(e.target.value); setPage(1); }} className="border rounded px-3 py-1 mb-3">
         <option value="">Select a table...</option>
         {tables.map((t) => <option key={t} value={t}>{t}</option>)}
@@ -449,7 +465,7 @@ function SQLQueryTab() {
       />
       <button
         onClick={handleRun}
-        disabled={running || !sql.trim().toUpperCase().startsWith("SELECT")}
+        disabled={running || !/^\s*(select|with)\b/i.test(sql)}
         className="mt-2 bg-sage-500 text-white px-4 py-1 rounded disabled:opacity-50"
       >
         {running ? "Running..." : "Execute"}

@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useParams, Link } from "react-router-dom";
-import { api } from "../lib/api";
+import { api, fetchAll } from "../lib/api";
 import type { Class, Flow, Transition, Asana } from "../lib/types";
 import { RankStars } from "../components/RankStars";
 import { useAuth } from "../lib/auth";
@@ -23,15 +23,15 @@ export function ClassDetailPage() {
     setError("");
     Promise.all([
       api.get(`/classes/${id}`),
-      api.get("/flows?limit=200"),
-      api.get("/transitions?limit=200"),
-      api.get("/asanas?limit=200"),
+      fetchAll<Flow>("/flows"),
+      fetchAll<Transition>("/transitions"),
+      fetchAll<Asana>("/asanas"),
     ])
-      .then(([clsRes, flowRes, transRes, asanaRes]) => {
+      .then(([clsRes, allFlows, allTransitions, allAsanas]) => {
         setCls(clsRes.data);
-        setFlows(flowRes.data);
-        setTransitions(transRes.data);
-        setAsanas(asanaRes.data);
+        setFlows(allFlows);
+        setTransitions(allTransitions);
+        setAsanas(allAsanas);
       })
       .catch(() => setError("Failed to load class details."))
       .finally(() => setLoading(false));
@@ -76,7 +76,7 @@ export function ClassDetailPage() {
                   await api.post("/ranking/rank", { type: "class", target_id: Number(id), rank });
                   setStatus("Rank submitted");
                   refresh();
-                } catch (err: any) {
+                } catch {
                   setStatus("Failed to rank.");
                 }
               }}

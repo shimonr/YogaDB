@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import { api } from "../lib/api";
+import { api, fetchAll } from "../lib/api";
 import type { Class, Flow } from "../lib/types";
 import { RankStars } from "../components/RankStars";
 import { ConfirmDialog } from "../components/ConfirmDialog";
@@ -19,10 +19,10 @@ export function ClassesPage() {
 
   const refresh = () => {
     setLoading(true);
-    Promise.all([api.get("/classes?limit=50"), api.get("/flows?limit=200")])
-      .then(([clsRes, flowRes]) => {
+    Promise.all([api.get("/classes?limit=50"), fetchAll<Flow>("/flows")])
+      .then(([clsRes, allFlows]) => {
         setClasses(clsRes.data);
-        setFlows(flowRes.data);
+        setFlows(allFlows);
       })
       .finally(() => setLoading(false));
   };
@@ -50,8 +50,6 @@ export function ClassesPage() {
     setDeleteId(null);
     refresh();
   };
-
-  const flowNameMap = Object.fromEntries(flows.map((f) => [f.id, f.name]));
 
   if (loading) return <p className="text-slate-500">Loading...</p>;
 

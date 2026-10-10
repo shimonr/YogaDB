@@ -24,10 +24,11 @@ App: http://localhost:5173
 |---------|-------------|
 | `npm run dev` | Dev server (port 5173) |
 | `npm run build` | Production build → `dist/` |
+| `npm run lint` | ESLint (TypeScript + React hooks rules) |
 | `npm run preview` | Preview production build |
 
 ## Pages
 
-Home, Asanas (list + detail), Transitions, Flows, Search, About, Auth, Admin (role=admin).
+Home, Asanas (list + detail), Transitions, Flows, Classes, Games, Search, About, Auth, Admin (role=admin).
 
 See [../docs/DEVELOPMENT.md](../docs/DEVELOPMENT.md) for full project setup.

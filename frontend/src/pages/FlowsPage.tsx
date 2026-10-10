@@ -1,6 +1,6 @@
 import { useEffect, useState, useMemo } from "react";
 import { Link } from "react-router-dom";
-import { api } from "../lib/api";
+import { api, fetchAll } from "../lib/api";
 import type { Flow, Transition, Asana } from "../lib/types";
 import { RankStars } from "../components/RankStars";
 import { ConfirmDialog } from "../components/ConfirmDialog";
@@ -26,16 +26,15 @@ export function FlowsPage() {
     api.get("/flows/top").then((r) => setItems(r.data)).catch(() => setError("Failed to load flows."));
 
   useEffect(() => {
-    Promise.all([api.get("/flows/top"), api.get("/transitions?limit=200"), api.get("/asanas?limit=200")])
-      .then(([flowRes, transRes, asanaRes]) => {
+    Promise.all([api.get("/flows/top"), fetchAll<Transition>("/transitions"), fetchAll<Asana>("/asanas")])
+      .then(([flowRes, trans, asanas]) => {
         setItems(flowRes.data);
-        const trans = transRes.data as Transition[];
         setTransitions(trans);
         const tMap: Record<number, Transition> = {};
         trans.forEach((t) => { tMap[t.id] = t; });
         setTransMap(tMap);
         const aMap: Record<number, Asana> = {};
-        (asanaRes.data as Asana[]).forEach((a) => { aMap[a.id] = a; });
+        asanas.forEach((a) => { aMap[a.id] = a; });
         setAsanaMap(aMap);
       })
       .catch(() => setError("Failed to load data."))

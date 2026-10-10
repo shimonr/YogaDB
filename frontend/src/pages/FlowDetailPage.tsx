@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useParams, Link } from "react-router-dom";
-import { api } from "../lib/api";
-import type { Flow, Transition, Asana, Photo } from "../lib/types";
+import { api, fetchAll } from "../lib/api";
+import type { Flow, Transition, Asana } from "../lib/types";
 import { RankStars } from "../components/RankStars";
 import { photoFileUrl } from "../lib/photoUrl";
 
@@ -9,8 +9,8 @@ interface StepData {
   transition: Transition | null;
   startAsana: Asana | null;
   endAsana: Asana | null;
-  startPhoto: Photo | null;
-  endPhoto: Photo | null;
+  startPhotoId: number | null;
+  endPhotoId: number | null;
 }
 
 export function FlowDetailPage() {
@@ -28,14 +28,14 @@ export function FlowDetailPage() {
         const f: Flow = flowRes.data;
         setFlow(f);
 
-        const [transRes, asanaRes] = await Promise.all([
-          api.get("/transitions?limit=200"),
-          api.get("/asanas?limit=200"),
+        const [transitions, asanas] = await Promise.all([
+          fetchAll<Transition>("/transitions"),
+          fetchAll<Asana>("/asanas"),
         ]);
         const tMap: Record<number, Transition> = {};
-        (transRes.data as Transition[]).forEach((t) => { tMap[t.id] = t; });
+        transitions.forEach((t) => { tMap[t.id] = t; });
         const aMap: Record<number, Asana> = {};
-        (asanaRes.data as Asana[]).forEach((a) => { aMap[a.id] = a; });
+        asanas.forEach((a) => { aMap[a.id] = a; });
 
         const built: StepData[] = [];
         for (const tid of f.transition_ids) {
@@ -43,26 +43,13 @@ export function FlowDetailPage() {
           const startA = t ? aMap[t.start_asana_id] || null : null;
           const endA = t ? aMap[t.end_asana_id] || null : null;
 
-          let sp: Photo | null = null;
-          let ep: Photo | null = null;
-          if (startA) {
-            const spRes = await api.get(`/photos/by-asana/${startA.id}`).catch(() => null);
-            if (spRes?.data?.length) {
-              const photos: Photo[] = spRes.data;
-              photos.sort((a, b) => b.rank - a.rank);
-              sp = photos[0];
-            }
-          }
-          if (endA) {
-            const epRes = await api.get(`/photos/by-asana/${endA.id}`).catch(() => null);
-            if (epRes?.data?.length) {
-              const photos: Photo[] = epRes.data;
-              photos.sort((a, b) => b.rank - a.rank);
-              ep = photos[0];
-            }
-          }
-
-          built.push({ transition: t, startAsana: startA, endAsana: endA, startPhoto: sp, endPhoto: ep });
+          built.push({
+            transition: t,
+            startAsana: startA,
+            endAsana: endA,
+            startPhotoId: startA?.cover_photo_id ?? null,
+            endPhotoId: endA?.cover_photo_id ?? null,
+          });
         }
         setSteps(built);
       })
@@ -85,9 +72,9 @@ export function FlowDetailPage() {
       <div className="space-y-0">
         {steps.map((step, i) => (
           <div key={i}>
-            {step.startPhoto ? (
-              <Link to={`/photos/${step.startPhoto.id}`}>
-                <img src={photoFileUrl(step.startPhoto.id)} alt="" className="w-48 h-48 object-cover rounded-xl mx-auto" />
+            {step.startPhotoId ? (
+              <Link to={`/photos/${step.startPhotoId}`}>
+                <img src={photoFileUrl(step.startPhotoId)} alt="" className="w-48 h-48 object-cover rounded-xl mx-auto" />
               </Link>
             ) : step.startAsana ? (
               <Link to={`/asanas/${step.startAsana.id}`}>
@@ -112,9 +99,9 @@ export function FlowDetailPage() {
 
         {steps.length > 0 && (() => {
           const last = steps[steps.length - 1];
-          return last.endPhoto ? (
-            <Link to={`/photos/${last.endPhoto.id}`}>
-              <img src={photoFileUrl(last.endPhoto.id)} alt="" className="w-48 h-48 object-cover rounded-xl mx-auto" />
+          return last.endPhotoId ? (
+            <Link to={`/photos/${last.endPhotoId}`}>
+              <img src={photoFileUrl(last.endPhotoId)} alt="" className="w-48 h-48 object-cover rounded-xl mx-auto" />
             </Link>
           ) : last.endAsana ? (
             <Link to={`/asanas/${last.endAsana.id}`}>

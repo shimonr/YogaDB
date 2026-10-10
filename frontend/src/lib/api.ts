@@ -24,3 +24,13 @@ api.interceptors.response.use(
     return Promise.reject(error);
   },
 );
+
+/** Fetch every item of a paginated list endpoint; the API caps `limit` at 200 per request. */
+export async function fetchAll<T>(path: string, pageSize = 200): Promise<T[]> {
+  const items: T[] = [];
+  for (let skip = 0; ; skip += pageSize) {
+    const { data } = await api.get<T[]>(path, { params: { skip, limit: pageSize } });
+    items.push(...data);
+    if (data.length < pageSize) return items;
+  }
+}

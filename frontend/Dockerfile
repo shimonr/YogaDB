@@ -5,6 +5,9 @@ COPY package.json package-lock.json ./
 RUN npm ci
 
 COPY . .
+# Vite inlines VITE_* variables at build time, so the API URL must be a build argument.
+ARG VITE_API_BASE_URL=/api
+ENV VITE_API_BASE_URL=$VITE_API_BASE_URL
 RUN npm run build
 
 FROM nginx:alpine

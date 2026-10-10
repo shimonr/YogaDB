@@ -2,7 +2,7 @@ import { NavLink, Outlet, useLocation, Link } from "react-router-dom";
 import { useEffect, useState } from "react";
 import {
   Home, Layers, ArrowRightLeft, Route, Gamepad2, Search,
-  Info, Shield, BookOpen, LogIn,
+  Info, Shield, BookOpen,
 } from "lucide-react";
 import { useAuth } from "../lib/auth";
 import { api } from "../lib/api";
@@ -40,8 +40,6 @@ const gameLabels: Record<string, string> = {
 function Breadcrumbs() {
   const location = useLocation();
   const parts = location.pathname.split("/").filter(Boolean);
-  if (parts.length === 0) return null;
-
   const [entityNames, setEntityNames] = useState<Record<string, string>>({});
 
   useEffect(() => {
@@ -72,6 +70,8 @@ function Breadcrumbs() {
 
     Promise.all(fetches).then(() => setEntityNames(map)).catch(() => {});
   }, [location.pathname]);
+
+  if (parts.length === 0) return null;
 
   const crumbs: { label: string; to: string }[] = [];
   let path = "";

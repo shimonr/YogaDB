@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import { api } from "../lib/api";
+import { api, fetchAll } from "../lib/api";
 import { RankStars } from "../components/RankStars";
 import { ConfirmDialog } from "../components/ConfirmDialog";
 import { useAuth } from "../lib/auth";
@@ -33,10 +33,9 @@ export function TransitionsPage() {
     api.get("/transitions/top").then((r) => setItems(r.data)).catch(() => setError("Failed to load transitions."));
 
   useEffect(() => {
-    Promise.all([api.get("/transitions/top"), api.get("/asanas?limit=200")])
-      .then(([transRes, asanaRes]) => {
+    Promise.all([api.get("/transitions/top"), fetchAll<Asana>("/asanas")])
+      .then(([transRes, rows]) => {
         setItems(transRes.data);
-        const rows = asanaRes.data as Asana[];
         setAsanas(rows);
         const map: Record<number, Asana> = {};
         rows.forEach((a) => { map[a.id] = a; });
