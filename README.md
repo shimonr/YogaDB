@@ -15,7 +15,11 @@ Full-stack web app for exploring yoga **asanas**, **transitions**, and **flows**
 
 ## Quick start
 
-**Prerequisites:** Python 3.11+, Node.js 20+, npm
+**Prerequisites:** Git, Python 3.11+, Node.js 20+, npm
+
+**One click (Windows):** double-click `run-local.cmd` in the repo root. It pulls the latest code (`git pull --ff-only`), installs dependencies, starts the backend and frontend in their own windows, and opens http://localhost:5173 when both respond. Close the two server windows to stop. Running it again while the servers are up reuses them; the backend reloads code changes on its own.
+
+Or step by step:
 
 ```powershell
 # From repo root (Windows)
