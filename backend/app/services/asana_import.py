@@ -1,4 +1,8 @@
-"""Load asana inventory from CSV and match photos from a yoga-image-collector layout."""
+"""Load asana inventory from CSV and match photos from a yoga-image-collector layout.
+
+Run `python -m app.services.asana_import` (from backend/, or in the backend container) to
+import ASANAS_CSV_PATH + ASANAS_IMAGES_DIR into the configured database.
+"""
 
 from __future__ import annotations
 
@@ -7,6 +11,9 @@ import re
 import unicodedata
 from pathlib import Path
 
+from sqlalchemy.orm import Session
+
+from app.models import Asana, Photo
 from app.services.photo_storage import to_stored_path
 
 IMAGE_SUFFIXES = {".jpg", ".jpeg", ".png", ".webp", ".gif"}
@@ -153,3 +160,66 @@ def build_asana_payload(csv_path: Path, images_dir: Path) -> list[dict]:
         asana["photos"] = discover_photos_for_asana(images_dir, asana["english_name"], reference_urls)
 
     return asanas
+
+
+def load_payload(csv_path: Path, images_dir: Path | None) -> list[dict]:
+    """Asanas from the CSV, with photos when the images folder exists."""
+    if images_dir and images_dir.is_dir():
+        return build_asana_payload(csv_path, images_dir)
+    return load_asanas_from_csv(csv_path)
+
+
+def upsert_asanas(db: Session, payload: list[dict]) -> None:
+    """Create or update asanas by id and replace their imported photos; user uploads are kept."""
+    for item in payload:
+        asana = db.get(Asana, item["id"]) or Asana(id=item["id"])
+        asana.english_name = item["english_name"]
+        asana.sanskrit_name = item["sanskrit_name"]
+        asana.alt_name_1 = item.get("alternative_name_1")
+        asana.alt_name_2 = item.get("alternative_name_2")
+        asana.difficulty_level = item["difficulty_level"]
+        asana.benefits = item["benefits"]
+        asana.is_classic = item["is_classic"]
+        asana.type = item["type"]
+        asana.category = item["category"]
+        asana.rank = item.get("rank", 50)
+        db.add(asana)
+        db.flush()
+
+        db.query(Photo).filter(Photo.asana_id == asana.id, Photo.type == "download").delete()
+        for photo in item.get("photos", []):
+            db.add(
+                Photo(
+                    type=photo.get("type", "download"),
+                    asana_id=asana.id,
+                    user_id=None,
+                    local_path=photo["local_path"],
+                    original_url=photo.get("original_url"),
+                    rank=photo.get("rank", 50),
+                )
+            )
+
+
+def main() -> None:
+    from app.core.config import get_settings
+    from app.core.database import SessionLocal
+
+    settings = get_settings()
+    csv_path, images_dir = settings.asanas_csv_file, settings.asanas_images_path
+    if not csv_path or not csv_path.is_file():
+        raise SystemExit(f"Asana CSV not found: {csv_path} (set ASANAS_CSV_PATH)")
+    payload = load_payload(csv_path, images_dir)
+    db = SessionLocal()
+    try:
+        upsert_asanas(db, payload)
+        db.commit()
+    finally:
+        db.close()
+    photos = sum(len(item.get("photos", [])) for item in payload)
+    with_photos = sum(1 for item in payload if item.get("photos"))
+    print(f"Imported {len(payload)} asanas from {csv_path}")
+    print(f"Matched {photos} photos for {with_photos} asanas under {images_dir}")
+
+
+if __name__ == "__main__":
+    main()

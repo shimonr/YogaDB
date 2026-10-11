@@ -33,8 +33,8 @@ from app.core.config import get_settings  # noqa: E402
 from app.core.database import SessionLocal  # noqa: E402
 from app.core.migrations import upgrade_database  # noqa: E402
 from app.core.security import get_password_hash  # noqa: E402
-from app.models import Asana, Photo, User  # noqa: E402
-from app.services.asana_import import build_asana_payload  # noqa: E402
+from app.models import User  # noqa: E402
+from app.services.asana_import import build_asana_payload, upsert_asanas  # noqa: E402
 
 
 def parse_args() -> argparse.Namespace:
@@ -82,36 +82,7 @@ def main() -> None:
 
     db = SessionLocal()
     try:
-        for item in payload:
-            asana = db.query(Asana).filter(Asana.id == item["id"]).first()
-            if asana is None:
-                asana = Asana(id=item["id"])
-            asana.english_name = item["english_name"]
-            asana.sanskrit_name = item["sanskrit_name"]
-            asana.alt_name_1 = item.get("alternative_name_1")
-            asana.alt_name_2 = item.get("alternative_name_2")
-            asana.difficulty_level = item["difficulty_level"]
-            asana.benefits = item["benefits"]
-            asana.is_classic = item["is_classic"]
-            asana.type = item["type"]
-            asana.category = item["category"]
-            asana.rank = item.get("rank", 50)
-            db.add(asana)
-            db.flush()
-
-            # Replace imported photos only; user uploads stay even after their uploader is deleted.
-            db.query(Photo).filter(Photo.asana_id == asana.id, Photo.type == "download").delete()
-            for photo in item.get("photos", []):
-                db.add(
-                    Photo(
-                        type=photo.get("type", "download"),
-                        asana_id=asana.id,
-                        user_id=None,
-                        local_path=photo["local_path"],
-                        original_url=photo.get("original_url"),
-                        rank=photo.get("rank", 50),
-                    )
-                )
+        upsert_asanas(db, payload)
 
         admin = db.query(User).filter(User.username == "shimon").first()
         if not admin:

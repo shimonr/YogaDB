@@ -25,6 +25,7 @@ Previous session: https://ampcode.com/threads/T-01a126c7-3226-76bb-9da0-c62acc71
 - Server layout: repo at `/opt/apps/yogadb`, secrets (incl. admin password) in `/opt/apps/yogadb/deploy/oracle/.env`, backups in `/opt/backups/yogadb`, shared Caddy proxy (compose project `proxy`, network `web`) for future apps.
 - SSH keys authorized on the VM: the user's own key, and `amp-deploy@yogadb`, whose private key exists only in the 2026-10-11 session's orb (`~/.ssh/oracle_deploy`). For agents in new orbs, add an `ORACLE_SSH_PRIVATE_KEY` Amp secret with a key the VM accepts.
 - Started fresh from the 10-pose sample CSV; photo uploads go to the VM disk (`yogadb_uploads` volume). Cloudinary/Neon/Render/Vercel remain the documented backup (option 2).
+- **Pending:** the real asana list + photos (yoga-image-collector, ~0.16 GB / 1054 files) exist only on the user's PC (`PHOTOS_CSV` / `PHOTOS_DIR` in `deploy/oracle/config.env`). They go live when the user double-clicks `upload-photos.cmd` (packs, uploads to `/opt/apps/yogadb-data/asanas`, redeploys, imports). Tooling is deployed and tested; the upload itself needs the user's PC.
 
 ## Before deploying to the free-tier backup
 

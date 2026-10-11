@@ -33,10 +33,12 @@ services:
       ADMIN_PASSWORD: ${ADMIN_PASSWORD:?set in .env}
       CORS_ORIGINS: https://${DOMAIN:?set DOMAIN}
       ACCESS_TOKEN_EXPIRE_MINUTES: "1440"
-      ASANAS_CSV_PATH: /data/asanas/yoga_asanas.sample.csv
+      # Real data uploaded by upload-photos.cmd lives in /opt/apps/yogadb-data/asanas;
+      # server-deploy.sh / server-import-photos.sh set these, otherwise the repo sample is used.
+      ASANAS_CSV_PATH: /data/asanas/${ASANAS_CSV_FILE:-yoga_asanas.sample.csv}
       ASANAS_IMAGES_DIR: /data/asanas
     volumes:
-      - ../../data/asanas:/data/asanas:ro
+      - ${ASANAS_DATA_DIR:-../../data/asanas}:/data/asanas:ro
       - uploads:/data/uploads   # user photo uploads (Cloudinary is used instead if configured)
     networks:
       - internal
@@ -64,18 +66,23 @@ services:
         condition: service_healthy
     environment:
       PGPASSWORD: ${POSTGRES_PASSWORD}
-    # Daily compressed dump, 14 days kept, in /opt/backups/yogadb on the host.
+    # Daily database dump and user-uploaded photos, 14 days kept, in /opt/backups/yogadb on
+    # the host. Imported asana images are not copied: their source is the uploader's PC.
     entrypoint:
       - sh
       - -c
       - |
         while true; do
-          pg_dump -h db -U yogadb yogadb | gzip > /backups/yogadb-$$(date +%F).sql.gz
+          day=$$(date +%F)
+          pg_dump -h db -U yogadb yogadb | gzip > /backups/yogadb-$$day.sql.gz
+          tar -czf /backups/uploads-$$day.tar.gz -C /uploads .
           find /backups -name 'yogadb-*.sql.gz' -mtime +14 -delete
+          find /backups -name 'uploads-*.tar.gz' -mtime +14 -delete
           sleep 86400
         done
     volumes:
       - /opt/backups/yogadb:/backups
+      - uploads:/uploads:ro
     networks:
       - internal
 

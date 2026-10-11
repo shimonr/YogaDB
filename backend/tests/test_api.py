@@ -1,6 +1,6 @@
 from pathlib import Path
 
-from app.models import Photo
+from app.models import Asana, Photo
 from app.services.photo_storage import UPLOAD_ROOT
 from tests.conftest import TestingSessionLocal
 
@@ -745,3 +745,26 @@ class TestCORS:
         )
         assert r.status_code == 200
         assert r.headers.get("access-control-allow-origin") == "http://localhost:5173"
+
+
+class TestAsanaImport:
+    def test_reimport_updates_asanas_replaces_imported_photos_keeps_uploads(self):
+        from app.services.asana_import import upsert_asanas
+
+        row = {
+            "sanskrit_name": "S", "alternative_name_1": None, "alternative_name_2": None,
+            "difficulty_level": 2, "benefits": "", "is_classic": True, "type": "standing", "category": "focus",
+        }
+        db = TestingSessionLocal()
+        db.add(Photo(type="upload", asana_id=1, user_id=None, local_path="uploads/asanas/1/u.jpg", rank=50))
+        db.commit()
+        upsert_asanas(db, [
+            {**row, "id": 1, "english_name": "Mountain Pose v2", "photos": [{"local_path": "Mountain_Pose/a.jpg"}]},
+            {**row, "id": 3, "english_name": "Brand New Pose", "photos": []},
+        ])
+        db.commit()
+        assert db.get(Asana, 1).english_name == "Mountain Pose v2"
+        assert db.get(Asana, 3).english_name == "Brand New Pose"
+        paths = sorted(p.local_path for p in db.query(Photo).filter(Photo.asana_id == 1))
+        assert paths == ["Mountain_Pose/a.jpg", "uploads/asanas/1/u.jpg"]
+        db.close()

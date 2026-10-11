@@ -59,11 +59,19 @@ EOF
   )
   echo "    Admin password (user 'shimon') is in $env_file"
 fi
-# Keep DOMAIN in the env file (sudo would drop an exported variable) so config.env changes apply.
-if grep -q '^DOMAIN=' "$env_file"; then
-  sed -i "s|^DOMAIN=.*|DOMAIN=$DOMAIN|" "$env_file"
-else
-  echo "DOMAIN=$DOMAIN" >> "$env_file"
+set_env() {  # set KEY=VALUE in the env file (compose reads it; sudo would drop exported variables)
+  if grep -q "^$1=" "$env_file"; then
+    sed -i "s|^$1=.*|$1=$2|" "$env_file"
+  else
+    echo "$1=$2" >> "$env_file"
+  fi
+}
+set_env DOMAIN "$DOMAIN"
+# Asana CSV + images uploaded with upload-photos.cmd replace the repo's sample data.
+data_dir="${DATA_DIR:-/opt/apps/yogadb-data}/asanas"
+if [[ -f "$data_dir/yoga_asanas.csv" ]]; then
+  set_env ASANAS_DATA_DIR "$data_dir"
+  set_env ASANAS_CSV_FILE yoga_asanas.csv
 fi
 
 step "Proxy: shared Caddy"

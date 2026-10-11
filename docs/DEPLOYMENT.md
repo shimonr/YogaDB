@@ -47,7 +47,18 @@ ls /opt/backups/yogadb                                 # daily database dumps (1
 
 Restore a dump: `gunzip -c /opt/backups/yogadb/yogadb-DATE.sql.gz | sudo docker compose --env-file .env exec -T db psql -U yogadb yogadb` (into an empty database).
 
-Data lives in Docker volumes `yogadb_pgdata` (database), `yogadb_uploads` (photo uploads) and `proxy_caddy_data` (certificates). The seed data is `data/asanas/yoga_asanas.sample.csv` (10 poses, no images), imported once when the database is empty.
+Data lives in Docker volumes `yogadb_pgdata` (database), `yogadb_uploads` (photos users upload) and `proxy_caddy_data` (certificates), plus `/opt/apps/yogadb-data/asanas` (asana CSV and images from your PC, see below). Backups in `/opt/backups/yogadb` hold the daily database dump and the user uploads; the asana images are not backed up there because your PC holds the originals.
+
+### Asana list and photos
+
+The real asana list and photos come from yoga-image-collector on your PC (`PHOTOS_CSV` and `PHOTOS_DIR` in `deploy/oracle/config.env`). To publish them, or after you change them, double-click **`upload-photos.cmd`**. It:
+
+1. packs the CSV and the per-pose image folders on your PC and copies them to the VM
+2. replaces `/opt/apps/yogadb-data/asanas` with them (files you deleted are removed on the server too)
+3. deploys `origin/master` so the backend reads that folder instead of the repo's 10-pose sample
+4. imports the asanas and photos into the database (`python -m app.services.asana_import`); rows are matched by CSV row number, imported photos are replaced, photos uploaded by users are kept
+
+Until the first upload, the server shows the sample (`data/asanas/yoga_asanas.sample.csv`, no images).
 
 ### First-time server prerequisites
 
@@ -79,7 +90,7 @@ Point an `A` record at `129.159.8.242`, change `DOMAIN` in `deploy/oracle/config
 
 ### Photos: disk or Cloudinary
 
-Uploads are stored on the VM (`yogadb_uploads` volume). To use Cloudinary instead, add `CLOUDINARY_CLOUD_NAME`, `CLOUDINARY_API_KEY` and `CLOUDINARY_API_SECRET` to the server's `.env` and pass them to the backend in `deploy/oracle/compose.yml`.
+Imported photos are served from `/opt/apps/yogadb-data/asanas` and user uploads are stored in the `yogadb_uploads` volume, both on the VM's disk. To use Cloudinary instead, add `CLOUDINARY_CLOUD_NAME`, `CLOUDINARY_API_KEY` and `CLOUDINARY_API_SECRET` to the server's `.env` and pass them to the backend in `deploy/oracle/compose.yml`.
 
 ## Option 2: Free services (backup)
 

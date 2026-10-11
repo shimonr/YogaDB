@@ -9,7 +9,7 @@ from app.core.config import DEFAULT_ADMIN_PASSWORD, get_settings
 from app.core.database import SessionLocal
 from app.core.migrations import upgrade_database
 from app.core.security import get_password_hash
-from app.models import Asana, Photo, User
+from app.models import Asana, User
 from app.routes import admin, asanas, auth, classes, flows, photos, ranking, transitions, users
 
 logger = logging.getLogger(__name__)
@@ -24,43 +24,13 @@ def _add_asanas(db: Session) -> int:
     if db.query(Asana).first() is not None:
         return 0
 
-    from app.services.asana_import import build_asana_payload, load_asanas_from_csv
+    from app.services.asana_import import load_payload, upsert_asanas
 
     images_dir = settings.asanas_images_path
-    if images_dir and images_dir.is_dir():
-        payload = build_asana_payload(csv_path, images_dir)
-    else:
+    if not images_dir or not images_dir.is_dir():
         logger.warning("Images dir %s not found — loading asanas without photos.", images_dir)
-        payload = load_asanas_from_csv(csv_path)
-
-    for item in payload:
-        db.add(
-            Asana(
-                id=item["id"],
-                english_name=item["english_name"],
-                sanskrit_name=item["sanskrit_name"],
-                alt_name_1=item.get("alternative_name_1"),
-                alt_name_2=item.get("alternative_name_2"),
-                difficulty_level=item["difficulty_level"],
-                benefits=item["benefits"],
-                is_classic=item["is_classic"],
-                type=item["type"],
-                category=item["category"],
-                rank=item.get("rank", 50),
-            )
-        )
-        db.flush()
-        for photo in item.get("photos", []):
-            db.add(
-                Photo(
-                    type=photo.get("type", "download"),
-                    asana_id=item["id"],
-                    user_id=None,
-                    local_path=photo["local_path"],
-                    original_url=photo.get("original_url"),
-                    rank=photo.get("rank", 50),
-                )
-            )
+    payload = load_payload(csv_path, images_dir)
+    upsert_asanas(db, payload)
     return len(payload)
 
 
