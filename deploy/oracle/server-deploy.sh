@@ -96,7 +96,7 @@ step "Check: HTTPS through the proxy"
 # Resolve to this machine so the check doesn't depend on the cloud firewall; the deploy
 # script checks the public URL from outside afterwards.
 for _ in $(seq 1 40); do
-  if curl -fsS -o /dev/null --max-time 5 --resolve "$DOMAIN:443:127.0.0.1" "https://$DOMAIN/api/asanas?limit=1"; then
+  if curl -fs -o /dev/null --max-time 5 --resolve "$DOMAIN:443:127.0.0.1" "https://$DOMAIN/api/asanas?limit=1"; then
     echo "    https://$DOMAIN serves the app"
     exit 0
   fi

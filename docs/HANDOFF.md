@@ -1,4 +1,4 @@
-# Session handoff — 2026-10-10
+# Session handoff — updated 2026-10-11
 
 Previous session: https://ampcode.com/threads/T-01a126c7-3226-76bb-9da0-c62acc7157e3
 
@@ -18,7 +18,15 @@ Previous session: https://ampcode.com/threads/T-01a126c7-3226-76bb-9da0-c62acc71
 
 **Next steps:** confirm the first CI run on GitHub passes (`.github/workflows/ci.yml`), then deploy once the production settings below are in place. Pushing to `master` may already trigger a Render auto-deploy, so check those settings first.
 
-## Before deploying to production
+## Production: Oracle VM (default since 2026-10-11)
+
+- Live: https://yogadb.129-159-8-242.sslip.io (Let's Encrypt cert via Caddy). VM `ubuntu@129.159.8.242`: Ubuntu 24.04, ARM64, 4 cores, 23 GB RAM, 96 GB disk.
+- Deploy: push to `master`, then `deploy.cmd` (Windows) / `scripts/deploy.sh`; agents use the `deploying-to-oracle` skill. Details: `docs/DEPLOYMENT.md`.
+- Server layout: repo at `/opt/apps/yogadb`, secrets (incl. admin password) in `/opt/apps/yogadb/deploy/oracle/.env`, backups in `/opt/backups/yogadb`, shared Caddy proxy (compose project `proxy`, network `web`) for future apps.
+- SSH keys authorized on the VM: the user's own key, and `amp-deploy@yogadb`, whose private key exists only in the 2026-10-11 session's orb (`~/.ssh/oracle_deploy`). For agents in new orbs, add an `ORACLE_SSH_PRIVATE_KEY` Amp secret with a key the VM accepts.
+- Started fresh from the 10-pose sample CSV; photo uploads go to the VM disk (`yogadb_uploads` volume). Cloudinary/Neon/Render/Vercel remain the documented backup (option 2).
+
+## Before deploying to the free-tier backup
 
 1. Set `ADMIN_PASSWORD` in Render (now in `render.yaml` as `sync: false`). Without it, a fresh production DB gets no admin user.
 2. `SECRET_KEY` must be ≥ 32 chars in production or the app refuses to start. Render's `generateValue` should give 44 chars (from docs, not verified).
