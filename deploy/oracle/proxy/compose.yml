@@ -1,0 +1,29 @@
+# Shared reverse proxy for every app on the VM: terminates HTTPS (automatic certificates)
+# and routes by hostname. Apps join the external "web" network and add labels like:
+#   labels:
+#     caddy: myapp.example.com
+#     caddy.reverse_proxy: "{{upstreams 80}}"
+name: proxy
+
+services:
+  caddy:
+    image: lucaslorentz/caddy-docker-proxy:2.13-alpine
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    environment:
+      CADDY_INGRESS_NETWORKS: web
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - caddy_data:/data
+    networks:
+      - web
+
+networks:
+  web:
+    external: true
+
+volumes:
+  caddy_data:

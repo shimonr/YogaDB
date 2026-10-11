@@ -99,10 +99,14 @@ packaging==26.3
     # via pytest
 pluggy==1.6.0
     # via pytest
-psycopg2-binary==2.9.13
+psycopg==3.3.6
     # via
     #   -c requirements.txt
     #   -r requirements.in
+psycopg-binary==3.3.6 ; implementation_name != 'pypy'
+    # via
+    #   -c requirements.txt
+    #   psycopg
 pyasn1==0.6.4
     # via
     #   -c requirements.txt
@@ -174,6 +178,7 @@ typing-extensions==4.16.0
     #   anyio
     #   fastapi
     #   opentelemetry-api
+    #   psycopg
     #   pydantic
     #   pydantic-core
     #   sqlalchemy
@@ -185,6 +190,10 @@ typing-inspection==0.4.4
     #   fastapi
     #   pydantic
     #   pydantic-settings
+tzdata==2026.5 ; sys_platform == 'win32'
+    # via
+    #   -c requirements.txt
+    #   psycopg
 urllib3==2.8.0
     # via
     #   -c requirements.txt

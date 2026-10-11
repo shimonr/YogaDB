@@ -1,0 +1,89 @@
+# YogaDB production stack on the Oracle VM. Started by server-deploy.sh with
+# --env-file .env (DOMAIN, SECRET_KEY, POSTGRES_PASSWORD, ADMIN_PASSWORD).
+name: yogadb
+
+services:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: yogadb
+      POSTGRES_USER: yogadb
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set in .env}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "yogadb", "-d", "yogadb"]
+      interval: 5s
+      retries: 30
+    networks:
+      - internal
+
+  backend:
+    build: ../../backend
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      ENV: production
+      DEBUG: "false"
+      DATABASE_URL: postgresql://yogadb:${POSTGRES_PASSWORD}@db:5432/yogadb
+      SECRET_KEY: ${SECRET_KEY:?set in .env}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:?set in .env}
+      CORS_ORIGINS: https://${DOMAIN:?set DOMAIN}
+      ACCESS_TOKEN_EXPIRE_MINUTES: "1440"
+      ASANAS_CSV_PATH: /data/asanas/yoga_asanas.sample.csv
+      ASANAS_IMAGES_DIR: /data/asanas
+    volumes:
+      - ../../data/asanas:/data/asanas:ro
+      - uploads:/data/uploads   # user photo uploads (Cloudinary is used instead if configured)
+    networks:
+      - internal
+
+  frontend:
+    build:
+      context: ../../frontend
+      args:
+        VITE_API_BASE_URL: /api
+    restart: unless-stopped
+    depends_on:
+      - backend
+    labels:
+      caddy: ${DOMAIN:?set DOMAIN}
+      caddy.reverse_proxy: "{{upstreams 80}}"
+    networks:
+      - internal
+      - web
+
+  backup:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      PGPASSWORD: ${POSTGRES_PASSWORD}
+    # Daily compressed dump, 14 days kept, in /opt/backups/yogadb on the host.
+    entrypoint:
+      - sh
+      - -c
+      - |
+        while true; do
+          pg_dump -h db -U yogadb yogadb | gzip > /backups/yogadb-$$(date +%F).sql.gz
+          find /backups -name 'yogadb-*.sql.gz' -mtime +14 -delete
+          sleep 86400
+        done
+    volumes:
+      - /opt/backups/yogadb:/backups
+    networks:
+      - internal
+
+networks:
+  internal: {}
+  web:
+    external: true
+
+volumes:
+  pgdata:
+  uploads:

@@ -45,6 +45,7 @@ Or step by step:
 | Doc | Contents |
 |-----|----------|
 | [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md) | Full dev guide — resume work in a new session |
+| [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md) | Oracle VM deploy (default) and free-tier backup |
 | [docs/MOVING_PROJECT.md](docs/MOVING_PROJECT.md) | Rename/move checklist |
 | [docs/ENVIRONMENT.md](docs/ENVIRONMENT.md) | All environment variables |
 | [docs/API.md](docs/API.md) | API endpoint summary |
@@ -85,10 +86,9 @@ CI (`.github/workflows/ci.yml`) runs these plus `alembic check`.
 1. Copy `backend/.env.example` → `backend/.env` (compose overrides the database and data paths)
 2. `docker compose up --build`, then open http://localhost:4173
 
-## Deployment (free tier)
+## Deployment
 
-- **Backend:** Render (`render.yaml`) or Fly (`backend/fly.toml`) — set `ENV=production`, `SECRET_KEY`, `ADMIN_PASSWORD`, `DATABASE_URL`, `CORS_ORIGINS`; migrations run on startup
-- **Frontend:** Vercel / Netlify — build `frontend/`, set `VITE_API_BASE_URL`
-- **Database:** Neon / Supabase — set `DATABASE_URL`; `backend/scripts/seed_production.py` copies a local SQLite database
+- **Default — Oracle Cloud VM:** commit, push, then double-click `deploy.cmd` (Windows) or run `scripts/deploy.sh`. Live at https://yogadb.129-159-8-242.sslip.io.
+- **Backup — free services:** Vercel (frontend) + Render/Fly (backend) + Neon (database) + Cloudinary (photos).
 
-Details in [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md) and [docs/ENVIRONMENT.md](docs/ENVIRONMENT.md).
+Details in [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md) and [docs/ENVIRONMENT.md](docs/ENVIRONMENT.md).

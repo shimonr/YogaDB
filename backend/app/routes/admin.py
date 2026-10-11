@@ -67,6 +67,8 @@ def execute_query(
         raise HTTPException(status_code=400, detail="Only one statement is allowed")
 
     # The database itself enforces read-only access; keyword filtering cannot.
+    # End the transaction the auth lookup opened: PostgreSQL only accepts READ ONLY before any query.
+    db.rollback()
     connection = db.connection()
     dialect = connection.dialect.name
     if dialect not in {"postgresql", "sqlite"}:
