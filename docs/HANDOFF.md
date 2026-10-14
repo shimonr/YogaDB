@@ -44,6 +44,11 @@ Previous session: https://ampcode.com/threads/T-01a126c7-3226-76bb-9da0-c62acc71
 - **Rate limiter:** start commands use `--proxy-headers --forwarded-allow-ips='*'` so it sees real client IPs behind Render/Fly/nginx.
 - **Node:** orbs use the preinstalled Node 26 (docs say "Node 20+"); CI uses `.nvmrc` (20).
 
+## Data fixes on the VM (2026-10-13)
+
+- Filled 12 missing Sanskrit names in the VM's CSV (e.g. Tabletop Pose = Bharmanasana, Boat Twist = Parivrtta Navasana, Neck Rolls = Greeva Sanchalana). Original kept at `/opt/apps/yogadb-data/yoga_asanas.before-sanskrit.csv`. The owner's PC copy still lacks them until he copies the VM file back.
+- 12 fitness exercises (rows 77, 79–82, 85, 92–94, 97–99) have no established Sanskrit name; the games skip asanas without a distinct Sanskrit name or photo. Rows 93 and 99 are both "Standing Quad Stretch".
+
 ## Still open (optional)
 
 - Rate limiter is in memory per process.
