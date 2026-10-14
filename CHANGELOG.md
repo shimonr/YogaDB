@@ -2,6 +2,11 @@
 
 Versions follow `MAJOR.MINOR.PATCH`. The version lives in `VERSION` (and `frontend/package.json`); the app shows it on the About page, in the sidebar and at `/api/health`. Releases are tagged `vX.Y.Z` and produced with the `version-wrap` skill.
 
+## 0.3.1 — 2026-10-14
+
+Fixed
+- Asana and class pages no longer reload with a spinner after rating or uploading, so the "Photo uploaded successfully." and "Rank submitted" messages stay visible (found by the new browser tests).
+
 ## 0.3.0 — 2026-10-14
 
 Everything planned before QA, plus a new look.

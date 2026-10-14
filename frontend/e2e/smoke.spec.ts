@@ -49,9 +49,10 @@ test("Sanskrit game shows a photo and four Sanskrit answers", async ({ page }) =
 test("phone menu opens and closes", async ({ page, isMobile }) => {
   test.skip(!isMobile, "phone layout only");
   await page.goto("/");
-  await expect(page.getByRole("link", { name: "Games" })).toBeHidden();
+  const menuLink = page.getByRole("navigation").getByRole("link", { name: "Games", exact: true });
+  await expect(menuLink).toBeHidden();
   await page.getByRole("button", { name: "Open menu" }).click();
-  await page.getByRole("link", { name: "Games" }).click();
+  await menuLink.click();
   await expect(page).toHaveURL(/\/games$/);
   await expect(page.getByRole("button", { name: "Open menu" })).toBeVisible();
 });

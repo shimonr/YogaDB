@@ -17,9 +17,9 @@ export function ClassDetailPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
-  const refresh = useCallback(() => {
+  const refresh = useCallback((showSpinner = false) => {
     if (!id) return;
-    setLoading(true);
+    if (showSpinner) setLoading(true);
     setError("");
     Promise.all([
       api.get(`/classes/${id}`),
@@ -37,7 +37,7 @@ export function ClassDetailPage() {
       .finally(() => setLoading(false));
   }, [id]);
 
-  useEffect(() => { refresh(); }, [refresh]);
+  useEffect(() => { refresh(true); }, [refresh]);
 
   if (loading) return <p className="text-slate-500">Loading...</p>;
   if (error) return <p className="text-red-600">{error}</p>;

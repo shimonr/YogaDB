@@ -1,10 +1,10 @@
-# Session handoff — version 0.3.0 (2026-10-14)
+# Session handoff — version 0.3.1 (2026-10-14)
 
 Snapshot of where YogaDB stands; the `version-wrap` skill rewrites it at the end of each session. History of changes: `CHANGELOG.md` and git tags. Earlier session threads: https://ampcode.com/threads/T-01a126c7-3226-76bb-9da0-c62acc7157e3
 
 ## Where things stand
 
-- **Version 0.3.0** (tag `v0.3.0`): everything planned before QA (password reset, QA reset and test mailbox, off-site backups) and the new design. QA testing starts on this version. CI (lint, tests, migrations check, build) passes on every push.
+- **Version 0.3.1** (tag `v0.3.1`): everything planned before QA (password reset, QA reset and test mailbox, off-site backups) and the new design. QA testing starts on this version. CI (lint, tests, migrations check, build) passes on every push.
 - **Production:** https://yogadb.129-159-8-242.sslip.io on the Oracle VM `ubuntu@129.159.8.242` (Ubuntu 24.04 ARM, 4 cores, 23 GB RAM, 96 GB disk). 106 asanas, 1,059 photos, real data.
 - **QA copy:** https://qa.yogadb.129-159-8-242.sslip.io, own database, same photos, sample transitions/flows/classes, "Reset QA" in Admin → QA Tools, test mailbox https://mail.qa.yogadb.129-159-8-242.sslip.io (user `qa`, password `MAILPIT_PASSWORD` in the QA `.env`).
 - **Free services** (Vercel/Render/Neon/Cloudinary) are a documented backup only; not verified recently.

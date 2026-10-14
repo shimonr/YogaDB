@@ -76,9 +76,11 @@ export function AsanaDetailPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
-  const refresh = useCallback(() => {
+  // The spinner only shows on the first load; later refreshes (after a rating or an upload) keep the
+  // page, and the upload box's success message, on screen.
+  const refresh = useCallback((showSpinner = false) => {
     if (!id) return;
-    setLoading(true);
+    if (showSpinner) setLoading(true);
     setError("");
     Promise.all([api.get(`/asanas/${id}`), api.get(`/photos/by-asana/${id}`)])
       .then(([asanaRes, photosRes]) => {
@@ -90,7 +92,7 @@ export function AsanaDetailPage() {
   }, [id]);
 
   useEffect(() => {
-    refresh();
+    refresh(true);
   }, [refresh]);
 
   if (loading) return <p className="text-slate-500">Loading...</p>;
@@ -161,12 +163,12 @@ export function AsanaDetailPage() {
           {status && <span className="text-xs text-slate-600">{status}</span>}
         </div>
       </div>
-      {user && <PhotoUpload asanaId={Number(id)} onUploaded={refresh} />}
+      {user && <PhotoUpload asanaId={Number(id)} onUploaded={() => refresh()} />}
       <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
         {[...photos]
           .sort((a, b) => b.rank - a.rank)
           .map((p) => (
-            <PhotoCard key={p.id} photo={p} user={user} onRanked={refresh} />
+            <PhotoCard key={p.id} photo={p} user={user} onRanked={() => refresh()} />
           ))}
       </div>
     </div>
