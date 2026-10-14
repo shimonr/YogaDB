@@ -1,8 +1,13 @@
 import json
 
+from fastapi import Request
 from sqlalchemy.orm import Session
 
 from app.models.activity_log import ActivityLog
+
+
+def client_ip(request: Request) -> str | None:
+    return request.client.host if request.client else None
 
 
 def log_activity(

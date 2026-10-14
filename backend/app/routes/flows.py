@@ -1,13 +1,15 @@
 import json
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from sqlalchemy.orm import Session
 
 from app.core.database import LIKE_ESCAPE, contains_pattern, get_db
 from app.core.deps import get_current_admin
 from app.models import Flow, Transition
 from app.schemas import FlowCreate, FlowOut
+from app.services.activity_service import client_ip, log_activity
+from app.services.ranking_service import delete_rankings
 
 router = APIRouter()
 
@@ -53,7 +55,12 @@ def top_flows(
 
 
 @router.post("", response_model=FlowOut)
-def create_flow(payload: FlowCreate, db: Annotated[Session, Depends(get_db)], _admin=Depends(get_current_admin)) -> dict:
+def create_flow(
+    request: Request,
+    payload: FlowCreate,
+    db: Annotated[Session, Depends(get_db)],
+    admin=Depends(get_current_admin),
+) -> dict:
     _require_transitions(db, payload.transition_ids)
     item = Flow(
         name=payload.name,
@@ -64,6 +71,7 @@ def create_flow(payload: FlowCreate, db: Annotated[Session, Depends(get_db)], _a
     db.add(item)
     db.commit()
     db.refresh(item)
+    log_activity(db, admin.id, "create", "flow", item.id, {"name": item.name}, client_ip(request))
     return _row_to_out(item)
 
 
@@ -77,10 +85,11 @@ def get_flow(flow_id: int, db: Annotated[Session, Depends(get_db)]) -> dict:
 
 @router.put("/{flow_id}", response_model=FlowOut)
 def update_flow(
+    request: Request,
     flow_id: int,
     payload: FlowCreate,
     db: Annotated[Session, Depends(get_db)],
-    _admin=Depends(get_current_admin),
+    admin=Depends(get_current_admin),
 ) -> dict:
     item = db.query(Flow).filter(Flow.id == flow_id).first()
     if not item:
@@ -93,14 +102,23 @@ def update_flow(
     db.add(item)
     db.commit()
     db.refresh(item)
+    log_activity(db, admin.id, "update", "flow", item.id, {"name": item.name}, client_ip(request))
     return _row_to_out(item)
 
 
 @router.delete("/{flow_id}")
-def delete_flow(flow_id: int, db: Annotated[Session, Depends(get_db)], _admin=Depends(get_current_admin)) -> dict:
+def delete_flow(
+    request: Request,
+    flow_id: int,
+    db: Annotated[Session, Depends(get_db)],
+    admin=Depends(get_current_admin),
+) -> dict:
     item = db.query(Flow).filter(Flow.id == flow_id).first()
     if not item:
         raise HTTPException(status_code=404, detail="Flow not found")
+    name = item.name
+    delete_rankings(db, "flow", [flow_id])
     db.delete(item)
     db.commit()
+    log_activity(db, admin.id, "delete", "flow", flow_id, {"name": name}, client_ip(request))
     return {"ok": True}

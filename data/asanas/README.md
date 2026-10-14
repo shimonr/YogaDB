@@ -8,15 +8,16 @@ The API loads asanas from a CSV inventory (`ASANAS_CSV_PATH`) and matches photos
 
 | Column | Used as |
 |--------|---------|
+| `id` | Asana id (optional; defaults to the row number) |
 | `english_name` | English name (required; rows without it are skipped) |
-| `sanskrit_name` | Sanskrit name (defaults to the English name) |
+| `sanskrit_name` | Sanskrit name; leave it blank or write `No Sanskrit` for poses without one (stored as `No Sanskrit`, and the Sanskrit games skip them) |
 | `alt_names` | Up to two alternative names, separated by `;` |
 | `difficulty_score` | Difficulty 1–5 (default 2) |
 | `pose_family` | Type, e.g. `standing` |
 | `primary_category` | Category, e.g. `balance` |
 | `benefits` | Benefits, separated by `;` |
 
-The row number is the asana id, so keep row order stable between imports.
+Ratings, photos and transitions refer to the asana id, so ids must stay stable between imports. With an `id` column you can delete or reorder rows safely; without it the row number is the id, so keep row order stable. Removing a row does not delete the asana from the database: delete it in the admin panel too.
 
 ## Images folder layout
 

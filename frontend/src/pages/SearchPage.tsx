@@ -76,8 +76,8 @@ export function SearchPage() {
       <h1 className="text-2xl font-semibold text-sage-700">Search</h1>
       <div className="card p-4 space-y-3">
         <div className="flex gap-3 text-sm">
-          <button className={`px-3 py-1 rounded ${mode === "asana" ? "bg-sage-500 text-white" : "bg-sand-100"}`} onClick={() => setMode("asana")}>Asana</button>
-          <button className={`px-3 py-1 rounded ${mode === "transition" ? "bg-sage-500 text-white" : "bg-sand-100"}`} onClick={() => setMode("transition")}>Transition</button>
+          <button className={`px-3 py-1 rounded ${mode === "asana" ? "bg-sage-500 text-white" : "bg-sand-100"}`} onClick={() => setMode("asana")} aria-pressed={mode === "asana"}>Asana</button>
+          <button className={`px-3 py-1 rounded ${mode === "transition" ? "bg-sage-500 text-white" : "bg-sand-100"}`} onClick={() => setMode("transition")} aria-pressed={mode === "transition"}>Transition</button>
         </div>
         <input className="input-base px-3 py-2 w-full" placeholder="Search by name, benefits, type..." value={q} onChange={(e) => setQ(e.target.value)} />
 
@@ -85,21 +85,21 @@ export function SearchPage() {
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-2 text-sm">
             <div>
               <label className="text-xs text-slate-400 block mb-1">Category</label>
-              <select className="input-base px-2 py-1 w-full" value={filterCategory} onChange={(e) => setFilterCategory(e.target.value)}>
+              <select aria-label="Category" className="input-base px-2 py-1 w-full" value={filterCategory} onChange={(e) => setFilterCategory(e.target.value)}>
                 <option value="">All</option>
                 {categories.map((c) => <option key={c} value={c}>{c}</option>)}
               </select>
             </div>
             <div>
               <label className="text-xs text-slate-400 block mb-1">Type</label>
-              <select className="input-base px-2 py-1 w-full" value={filterType} onChange={(e) => setFilterType(e.target.value)}>
+              <select aria-label="Type" className="input-base px-2 py-1 w-full" value={filterType} onChange={(e) => setFilterType(e.target.value)}>
                 <option value="">All</option>
                 {types.map((t) => <option key={t} value={t}>{t}</option>)}
               </select>
             </div>
             <div>
               <label className="text-xs text-slate-400 block mb-1">Classic</label>
-              <select className="input-base px-2 py-1 w-full" value={filterClassic} onChange={(e) => setFilterClassic(e.target.value as any)}>
+              <select aria-label="Classic" className="input-base px-2 py-1 w-full" value={filterClassic} onChange={(e) => setFilterClassic(e.target.value as any)}>
                 <option value="all">All</option>
                 <option value="yes">Yes</option>
                 <option value="no">No</option>
@@ -107,13 +107,13 @@ export function SearchPage() {
             </div>
             <div>
               <label className="text-xs text-slate-400 block mb-1">Min Rank</label>
-              <select className="input-base px-2 py-1 w-full" value={filterRankMin} onChange={(e) => setFilterRankMin(Number(e.target.value))}>
+              <select aria-label="Min Rank" className="input-base px-2 py-1 w-full" value={filterRankMin} onChange={(e) => setFilterRankMin(Number(e.target.value))}>
                 {starValues.map((v) => <option key={v} value={v}>{v === 0 ? "Any" : `${v}+`}</option>)}
               </select>
             </div>
             <div>
               <label className="text-xs text-slate-400 block mb-1">Max Rank</label>
-              <select className="input-base px-2 py-1 w-full" value={filterRankMax} onChange={(e) => setFilterRankMax(Number(e.target.value))}>
+              <select aria-label="Max Rank" className="input-base px-2 py-1 w-full" value={filterRankMax} onChange={(e) => setFilterRankMax(Number(e.target.value))}>
                 {starValues.map((v) => <option key={v} value={v}>{v === 100 ? "Any" : v}</option>)}
               </select>
             </div>
@@ -124,6 +124,8 @@ export function SearchPage() {
                   <button
                     key={d}
                     onClick={() => toggleDifficulty(d)}
+                    aria-label={`Difficulty ${d}`}
+                    aria-pressed={filterDifficulty.includes(d)}
                     className={`px-2 py-0.5 rounded text-xs border ${
                       filterDifficulty.includes(d)
                         ? "bg-sage-500 text-white border-sage-500"

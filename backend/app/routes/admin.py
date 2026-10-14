@@ -12,6 +12,8 @@ from app.core.database import get_db
 from app.core.deps import get_current_admin
 from app.models import ActivityLog, PasswordResetToken, RankingLog, User
 from app.schemas import ActivityLogOut, PasswordResetRequestOut, RankingLogOut
+from app.services import email as email_service
+from app.services import storage_limits
 from app.services.password_reset import create_reset_link
 from app.services.qa_reset import reset_qa
 
@@ -165,3 +167,22 @@ def qa_reset(
     if not get_settings().qa_mode:
         raise HTTPException(status_code=404, detail="Not available on this site")
     return {"ok": True, **reset_qa(db, keep_user_id=admin.id)}
+
+
+@router.get("/storage")
+def storage_status(_admin: Annotated[User, Depends(get_current_admin)]) -> dict:
+    """Upload storage use against its limits (server disk and, if used, Cloudinary)."""
+    return storage_limits.status()
+
+
+@router.post("/test-email")
+def send_test_email(admin: Annotated[User, Depends(get_current_admin)]) -> dict:
+    """Send a test email to the signed-in admin to check the SMTP settings."""
+    if not email_service.email_enabled():
+        raise HTTPException(status_code=400, detail="Email is not configured on this site (SMTP_HOST is empty).")
+    sent = email_service.send_email(
+        admin.email, "YogaDB test email", "This is a test email from YogaDB. Email sending works.\n"
+    )
+    if not sent:
+        raise HTTPException(status_code=502, detail="Sending failed. Check the SMTP settings and the backend log.")
+    return {"ok": True, "to": admin.email}

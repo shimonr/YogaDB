@@ -12,8 +12,10 @@ from app.core.deps import get_current_admin, get_current_user
 from app.models import Asana, Photo, User
 from app.schemas import PhotoCreate, PhotoOut
 from app.services.activity_service import log_activity
-from app.services.cloudinary_service import delete_image, extract_public_id, upload_image
-from app.services.photo_storage import UPLOAD_ROOT, is_uploaded_file, resolve_photo_file, thumbnail, to_stored_path
+from app.services.cloudinary_service import upload_image
+from app.services.photo_storage import UPLOAD_ROOT, remove_photo_file, resolve_photo_file, thumbnail, to_stored_path
+from app.services.ranking_service import delete_rankings
+from app.services.storage_limits import MB, StorageLimitReached, check_cloudinary_quota, check_local_upload
 
 router = APIRouter()
 
@@ -109,15 +111,21 @@ async def upload_photo(
     if ext not in {".jpg", ".jpeg", ".png", ".webp"}:
         raise HTTPException(status_code=400, detail="Unsupported file type")
 
-    content = await file.read()
-    if len(content) > 10 * 1024 * 1024:
-        raise HTTPException(status_code=400, detail="File too large (max 10MB)")
-
+    settings = get_settings()
+    content = await file.read(settings.upload_max_file_mb * MB + 1)
     _validate_magic_bytes(content, ext)
 
     filename = f"user-{user.id}-{secrets.token_hex(8)}"
+    try:
+        if len(content) > settings.upload_max_file_mb * MB:
+            raise StorageLimitReached(f"File too large (max {settings.upload_max_file_mb} MB)")
+        if settings.cloudinary_cloud_name:
+            check_cloudinary_quota()
+        else:
+            check_local_upload(len(content))
+    except StorageLimitReached as exc:
+        raise HTTPException(status_code=413 if "too large" in str(exc) else 507, detail=str(exc)) from exc
 
-    settings = get_settings()
     if settings.cloudinary_cloud_name:
         stored_path = upload_image(content, folder=str(asana_id), filename=filename)
     else:
@@ -167,15 +175,8 @@ def delete_photo(request: Request, photo_id: int, db: Annotated[Session, Depends
     item = db.query(Photo).filter(Photo.id == photo_id).first()
     if not item:
         raise HTTPException(status_code=404, detail="Photo not found")
-    if _is_remote(item.local_path):
-        public_id = extract_public_id(item.local_path)
-        if public_id:
-            delete_image(public_id)
-    else:
-        # Only user uploads are owned by the app; imported images are source files and stay on disk.
-        path = resolve_photo_file(item.local_path)
-        if path is not None and is_uploaded_file(path):
-            path.unlink(missing_ok=True)
+    remove_photo_file(item.local_path)
+    delete_rankings(db, "photo", [photo_id])
     db.delete(item)
     db.commit()
     ip = request.client.host if request.client else None

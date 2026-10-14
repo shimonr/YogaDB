@@ -23,12 +23,12 @@ export function FlowsPage() {
   const [confirmTarget, setConfirmTarget] = useState<{ id: number; label: string } | null>(null);
 
   const refresh = () =>
-    api.get("/flows/top").then((r) => setItems(r.data)).catch(() => setError("Failed to load flows."));
+    fetchAll<Flow>("/flows").then(setItems).catch(() => setError("Failed to load flows."));
 
   useEffect(() => {
-    Promise.all([api.get("/flows/top"), fetchAll<Transition>("/transitions"), fetchAll<Asana>("/asanas")])
-      .then(([flowRes, trans, asanas]) => {
-        setItems(flowRes.data);
+    Promise.all([fetchAll<Flow>("/flows"), fetchAll<Transition>("/transitions"), fetchAll<Asana>("/asanas")])
+      .then(([allFlows, trans, asanas]) => {
+        setItems(allFlows);
         setTransitions(trans);
         const tMap: Record<number, Transition> = {};
         trans.forEach((t) => { tMap[t.id] = t; });
@@ -76,13 +76,13 @@ export function FlowsPage() {
   if (error) return <p className="text-red-600">{error}</p>;
   return (
     <div className="space-y-4">
-      <h1 className="text-2xl font-semibold text-sage-700">Flows (Top 10)</h1>
+      <h1 className="text-2xl font-semibold text-sage-700">Flows</h1>
 
       {user?.role === "admin" && (
         <div className="card p-4 space-y-3">
           <div className="flex gap-2 items-center">
-            <input className="input-base px-3 py-2 flex-1" value={flowName} onChange={(e) => setFlowName(e.target.value)} placeholder="Flow name..." />
-            <select className="input-base px-2 py-1 text-sm" value={difficulty} onChange={(e) => setDifficulty(Number(e.target.value))}>
+            <input className="input-base px-3 py-2 flex-1" value={flowName} onChange={(e) => setFlowName(e.target.value)} placeholder="Flow name..." aria-label="Flow name" />
+            <select aria-label="Difficulty" className="input-base px-2 py-1 text-sm" value={difficulty} onChange={(e) => setDifficulty(Number(e.target.value))}>
               {[1, 2, 3, 4, 5].map((d) => <option key={d} value={d}>Diff {d}</option>)}
             </select>
           </div>
@@ -152,7 +152,7 @@ export function FlowsPage() {
             <RankStars rank={f.rank} />
             {user?.role === "admin" && (
               <button onClick={() => { setConfirmTarget({ id: f.id, label: f.name }); setConfirmOpen(true); }}
-                className="text-xs text-red-500 underline mt-1">Delete</button>
+                aria-label={`Delete ${f.name}`} className="text-xs text-red-500 underline mt-1">Delete</button>
             )}
           </div>
         ))}

@@ -28,8 +28,9 @@ function pickN<T>(arr: T[], n: number): T[] {
 
 const isPlaceholder = (name: string) => /^asana\s+\d+/i.test(name.trim());
 
-/** Games only use asanas with a photo, an English name and a real Sanskrit name.
- * The importer copies the English name into sanskrit_name when the CSV has none. */
+/** Games only use asanas with a photo, an English name and a real Sanskrit name. Poses without one
+ * have sanskrit_name "No Sanskrit" (older imports copied the English name instead). */
+const NO_SANSKRIT = "no sanskrit";
 const hasFullDetails = (a: Asana): a is Asana & { cover_photo_id: number } => {
   const english = a.english_name.trim();
   const sanskrit = a.sanskrit_name.trim();
@@ -38,6 +39,7 @@ const hasFullDetails = (a: Asana): a is Asana & { cover_photo_id: number } => {
     !!english &&
     !!sanskrit &&
     sanskrit.toLowerCase() !== english.toLowerCase() &&
+    sanskrit.toLowerCase() !== NO_SANSKRIT &&
     !isPlaceholder(english) &&
     !isPlaceholder(sanskrit)
   );

@@ -16,14 +16,16 @@ export function ClassesPage() {
   const [difficulty, setDifficulty] = useState(1);
   const [selectedFlows, setSelectedFlows] = useState<number[]>([]);
   const [deleteId, setDeleteId] = useState<number | null>(null);
+  const [status, setStatus] = useState("");
 
   const refresh = () => {
     setLoading(true);
-    Promise.all([api.get("/classes?limit=50"), fetchAll<Flow>("/flows")])
-      .then(([clsRes, allFlows]) => {
-        setClasses(clsRes.data);
+    Promise.all([fetchAll<Class>("/classes"), fetchAll<Flow>("/flows")])
+      .then(([allClasses, allFlows]) => {
+        setClasses(allClasses);
         setFlows(allFlows);
       })
+      .catch(() => setStatus("Failed to load classes."))
       .finally(() => setLoading(false));
   };
 
@@ -31,47 +33,63 @@ export function ClassesPage() {
 
   const handleCreate = async () => {
     if (!name.trim() || selectedFlows.length === 0) return;
-    await api.post("/classes", {
-      name: name.trim(),
-      description,
-      flow_ids: selectedFlows,
-      difficulty_level: difficulty,
-      rank: 50,
-    });
-    setName("");
-    setDescription("");
-    setSelectedFlows([]);
-    refresh();
+    setStatus("");
+    try {
+      await api.post("/classes", {
+        name: name.trim(),
+        description,
+        flow_ids: selectedFlows,
+        difficulty_level: difficulty,
+        rank: 50,
+      });
+      setName("");
+      setDescription("");
+      setSelectedFlows([]);
+      setStatus("Class created");
+      refresh();
+    } catch (err: any) {
+      const detail = err?.response?.data?.detail;
+      setStatus(typeof detail === "string" ? detail : "Failed to create class.");
+    }
   };
 
   const handleDelete = async () => {
     if (!deleteId) return;
-    await api.delete(`/classes/${deleteId}`);
+    try {
+      await api.delete(`/classes/${deleteId}`);
+      setClasses((prev) => prev.filter((c) => c.id !== deleteId));
+    } catch {
+      setStatus("Delete failed.");
+    }
     setDeleteId(null);
-    refresh();
   };
 
   if (loading) return <p className="text-slate-500">Loading...</p>;
 
   return (
     <div className="space-y-4">
+      <h1 className="text-2xl font-semibold text-sage-700">Classes</h1>
+      {status && <p className="text-sm text-slate-600" role="status">{status}</p>}
       {user?.role === "admin" && (
         <div className="card p-4 space-y-3">
           <h2 className="font-semibold text-slate-700">Create Class</h2>
           <input
             placeholder="Class name"
+            aria-label="Class name"
             value={name}
             onChange={(e) => setName(e.target.value)}
             className="input-base px-3 py-1 w-full"
           />
           <textarea
             placeholder="Description (optional)"
+            aria-label="Description"
             value={description}
             onChange={(e) => setDescription(e.target.value)}
             className="input-base px-3 py-1 w-full text-sm"
             rows={2}
           />
           <select
+            aria-label="Difficulty"
             value={difficulty}
             onChange={(e) => setDifficulty(Number(e.target.value))}
             className="input-base px-3 py-1"
@@ -125,6 +143,7 @@ export function ClassesPage() {
             {user?.role === "admin" && (
               <button
                 onClick={() => setDeleteId(cls.id)}
+                aria-label={`Delete ${cls.name}`}
                 className="text-red-500 text-xs mt-2 hover:underline"
               >
                 Delete

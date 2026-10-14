@@ -1,13 +1,16 @@
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from sqlalchemy import func, or_
 from sqlalchemy.orm import Session
 
 from app.core.database import LIKE_ESCAPE, contains_pattern, get_db
 from app.core.deps import get_current_admin
-from app.models import Asana, Photo
+from app.models import Asana, Photo, Transition
 from app.schemas import AsanaBase, AsanaOut
+from app.services.activity_service import client_ip, log_activity
+from app.services.photo_storage import remove_photo_file
+from app.services.ranking_service import delete_rankings
 
 router = APIRouter()
 
@@ -92,23 +95,26 @@ def get_asana(asana_id: int, db: Annotated[Session, Depends(get_db)]) -> AsanaOu
 
 @router.post("", response_model=AsanaOut)
 def create_asana(
+    request: Request,
     payload: AsanaBase,
     db: Annotated[Session, Depends(get_db)],
-    _admin=Depends(get_current_admin),
+    admin=Depends(get_current_admin),
 ) -> Asana:
     item = Asana(**payload.model_dump())
     db.add(item)
     db.commit()
     db.refresh(item)
+    log_activity(db, admin.id, "create", "asana", item.id, {"name": item.english_name}, client_ip(request))
     return item
 
 
 @router.put("/{asana_id}", response_model=AsanaOut)
 def update_asana(
+    request: Request,
     asana_id: int,
     payload: AsanaBase,
     db: Annotated[Session, Depends(get_db)],
-    _admin=Depends(get_current_admin),
+    admin=Depends(get_current_admin),
 ) -> Asana:
     item = db.query(Asana).filter(Asana.id == asana_id).first()
     if not item:
@@ -118,18 +124,30 @@ def update_asana(
     db.add(item)
     db.commit()
     db.refresh(item)
+    log_activity(db, admin.id, "update", "asana", item.id, {"name": item.english_name}, client_ip(request))
     return item
 
 
 @router.delete("/{asana_id}")
 def delete_asana(
+    request: Request,
     asana_id: int,
     db: Annotated[Session, Depends(get_db)],
-    _admin=Depends(get_current_admin),
+    admin=Depends(get_current_admin),
 ) -> dict[str, bool]:
     item = db.query(Asana).filter(Asana.id == asana_id).first()
     if not item:
         raise HTTPException(status_code=404, detail="Asana not found")
+    name = item.english_name
+    # Photos and transitions go with the asana (ON DELETE CASCADE); their files and ratings don't.
+    photos = db.query(Photo.id, Photo.local_path).filter(Photo.asana_id == asana_id).all()
+    transition_ids = [t.id for t in db.query(Transition.id).filter((Transition.start_asana_id == asana_id) | (Transition.end_asana_id == asana_id))]
+    for photo in photos:
+        remove_photo_file(photo.local_path)
+    delete_rankings(db, "asana", [asana_id])
+    delete_rankings(db, "photo", [p.id for p in photos])
+    delete_rankings(db, "transition", transition_ids)
     db.delete(item)
     db.commit()
+    log_activity(db, admin.id, "delete", "asana", asana_id, {"name": name}, client_ip(request))
     return {"ok": True}

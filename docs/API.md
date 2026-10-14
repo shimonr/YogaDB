@@ -35,7 +35,7 @@ List endpoints return at most `limit` (≤ 200) items; page with `skip`.
 |--------|------|------|-------------|
 | GET | `/photos/by-asana/{asana_id}` | — | List photos for asana |
 | GET | `/photos/{id}/file` | — | Serve the image; `?w=600` returns a WebP copy at most 600 px wide (GIFs and small images unchanged) |
-| POST | `/photos/upload` | User | Multipart: `asana_id`, `rank` (1–100), `file` (jpg/png/webp, ≤ 10 MB) |
+| POST | `/photos/upload` | User | Multipart: `asana_id`, `rank` (1–100), `file` (jpg/png/webp, ≤ `UPLOAD_MAX_FILE_MB`, default 10 MB). 413 when the file is too large; 507 when the storage limit, free disk minimum or Cloudinary credit limit is reached |
 | POST | `/photos/create` | Admin | JSON: `type`, `asana_id`, `local_path` (http(s) URL or a file under `data/` / `ASANAS_IMAGES_DIR`), `original_url`, `rank` |
 | GET | `/photos` | Admin | List all; query: `asana_id`, `skip`, `limit` |
 | DELETE | `/photos/{id}` | Admin | Delete the record; uploaded files are deleted too, imported source images are kept |
@@ -97,6 +97,8 @@ List endpoints return at most `limit` (≤ 200) items; page with `skip`.
 | GET | `/admin/activity-logs` | Admin | Activity history; query: `page`, `per_page`, `user_id`, `action`, `entity_type` |
 | GET | `/admin/password-resets` | Admin | Users with an unused reset request from the last day |
 | POST | `/admin/users/{id}/reset-link` | Admin | One-time reset link (24 hours) to send to the user |
+| GET | `/admin/storage` | Admin | Upload storage use and limits (server disk; Cloudinary credits when used) |
+| POST | `/admin/test-email` | Admin | Send a test email to the admin's address; 400 when email is not set up, 502 when sending fails |
 | POST | `/admin/qa/reset` | Admin | QA copy only (404 elsewhere): reset QA to a clean state; returns removed/created counts |
 
 ## Health

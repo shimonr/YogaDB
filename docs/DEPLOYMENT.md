@@ -49,12 +49,20 @@ QA extras (`QA_MODE=1`, `MAILPIT=1` in `qa.env`):
 ### Monitoring and backups off the VM
 
 - `.github/workflows/uptime.yml` checks production every 30 minutes; GitHub emails the repository owner when a run fails.
-- Production's `backup-offsite` container copies each daily backup to Cloudinary as private files (`yogadb-backups/yogadb/`, kept 30 days; files over 10 MB are skipped and logged). It uses `BACKUP_CLOUDINARY_*` in the server `.env`, separate from the photo settings, so the app keeps storing photos on the VM. Without those variables it idles.
+- Production's `backup-offsite` container copies each daily backup to Cloudinary as private files (`yogadb-backups/yogadb/`, kept 30 days; files over 10 MB are uploaded as `.partNN` pieces: restore with `cat file.part* > file`). Copying pauses once the backup account uses `OFFSITE_MAX_USAGE_PERCENT` (80) of its monthly Cloudinary credits. It uses `BACKUP_CLOUDINARY_*` in the server `.env`, separate from the photo settings, so the app keeps storing photos on the VM. Without those variables it idles.
 - `download-backups.cmd` copies `/opt/backups/yogadb` (database dumps and user uploads) to `Documents\YogaDB-backups` on the PC.
 
 ### Email (password reset)
 
-"Forgot password?" emails a one-hour reset link when SMTP is configured. Production has no email provider yet: requests appear in Admin → Overview → "Password reset requests", where the admin creates a 24-hour link and sends it by hand ("Reset link" also works for any user). To turn on email, add to `/opt/apps/yogadb/deploy/oracle/.env` and redeploy: `SMTP_HOST`, `SMTP_PORT` (587), `SMTP_USER`, `SMTP_PASSWORD`, `SMTP_FROM` (e.g. Brevo, Resend or a Gmail app password).
+"Forgot password?" emails a one-hour reset link when SMTP is configured. Production has no email provider yet: requests appear in Admin → Overview → "Password reset requests", where the admin creates a 24-hour link and sends it by hand ("Reset link" also works for any user). To turn on email:
+
+1. Create a free SMTP account. Brevo (300 emails a day, verify one sender address, no domain needed) or a Gmail app password both work.
+2. Put `SMTP_HOST`, `SMTP_PORT` (587), `SMTP_USER`, `SMTP_PASSWORD` and `SMTP_FROM` (the verified sender) in your shell or Amp project secrets and copy them to the server without printing them: `scripts/set-server-env.sh prod SMTP_HOST SMTP_PORT SMTP_USER SMTP_PASSWORD SMTP_FROM`. Or edit `/opt/apps/yogadb/deploy/oracle/.env` by hand.
+3. Redeploy (`scripts/deploy.sh`), then press Admin → Overview → "Send me a test email".
+
+### Upload limits
+
+Uploads are capped so the site stays inside the free tier: each photo at most `UPLOAD_MAX_FILE_MB` (10), all uploaded photos at most `UPLOADS_MAX_TOTAL_MB` (20 GB), and at least `MIN_FREE_DISK_MB` (5 GB) left on the disk. With Cloudinary photo storage, uploads stop at `CLOUDINARY_MAX_USAGE_PERCENT` (80) of the monthly credits. Admin → Overview → "Photo storage" shows usage against the limits; change them in the server `.env` (`scripts/set-server-env.sh`) and redeploy.
 
 ### Operate
 

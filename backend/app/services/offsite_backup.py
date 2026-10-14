@@ -3,11 +3,15 @@
 Runs in the backup-offsite container: `python -m app.services.offsite_backup`. Uses its own
 BACKUP_CLOUDINARY_* variables so the API itself keeps storing photos on the VM. Files are
 uploaded as "authenticated" raw resources (not publicly reachable) under
-yogadb-backups/<BACKUP_LABEL>/ and deleted from Cloudinary after KEEP_DAYS.
+yogadb-backups/<BACKUP_LABEL>/ and deleted from Cloudinary after KEEP_DAYS. Files larger than
+MAX_BYTES (the free plan's raw file limit) are split into NAME.part01, NAME.part02, ...; restore with
+`cat NAME.part* > NAME`. Copying pauses while the account's monthly credits are at or above
+OFFSITE_MAX_USAGE_PERCENT (default 80), so backups never push the account past its free allowance.
 """
 
 from __future__ import annotations
 
+import io
 import logging
 import os
 import time
@@ -22,6 +26,10 @@ logger = logging.getLogger("offsite_backup")
 BACKUP_DIR = Path(os.environ.get("OFFSITE_SOURCE_DIR", "/backups"))
 KEEP_DAYS = 30
 MAX_BYTES = 10 * 1024 * 1024  # Cloudinary free plan limit for raw files
+
+
+def _max_usage_percent() -> float:
+    return float(os.environ.get("OFFSITE_MAX_USAGE_PERCENT", "80"))
 
 
 def _prefix() -> str:
@@ -53,21 +61,32 @@ def remote_files() -> dict[str, datetime]:
             return found
 
 
+def _upload(source, public_id: str) -> None:
+    cloudinary.uploader.upload(source, resource_type="raw", type="authenticated", public_id=public_id, overwrite=False)
+
+
 def sync_once() -> dict[str, int]:
     existing = remote_files()
-    result = {"uploaded": 0, "skipped_large": 0, "deleted": 0}
-    for path in sorted(BACKUP_DIR.glob("*.gz")):
+    result = {"uploaded": 0, "split": 0, "deleted": 0, "paused_for_quota": 0}
+    used = float((cloudinary.api.usage().get("credits") or {}).get("used_percent", 0.0))
+    if used >= _max_usage_percent():
+        logger.warning("Cloudinary credits at %.1f%% (limit %.0f%%); off-site copy paused", used, _max_usage_percent())
+        result["paused_for_quota"] = 1
+    for path in sorted(BACKUP_DIR.glob("*.gz")) if not result["paused_for_quota"] else []:
         public_id = f"{_prefix()}/{path.name}"
-        if public_id in existing:
+        if public_id in existing or f"{public_id}.part01" in existing:
             continue
-        if path.stat().st_size > MAX_BYTES:
-            logger.warning("%s is larger than %d bytes; not copied off-site", path.name, MAX_BYTES)
-            result["skipped_large"] += 1
+        if path.stat().st_size <= MAX_BYTES:
+            _upload(str(path), public_id)
+            result["uploaded"] += 1
             continue
-        cloudinary.uploader.upload(
-            str(path), resource_type="raw", type="authenticated", public_id=public_id, overwrite=False
-        )
+        with path.open("rb") as handle:
+            part = 1
+            while chunk := handle.read(MAX_BYTES):
+                _upload(io.BytesIO(chunk), f"{public_id}.part{part:02d}")
+                part += 1
         result["uploaded"] += 1
+        result["split"] += 1
     cutoff = datetime.now(UTC) - timedelta(days=KEEP_DAYS)
     old = [public_id for public_id, created in existing.items() if created < cutoff]
     if old:

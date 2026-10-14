@@ -41,9 +41,75 @@ function PasswordResetRequests({ onCreateLink }: { onCreateLink: (userId: number
       {requests.map((r) => (
         <div key={r.user_id} className="flex justify-between items-center py-1 text-sm">
           <span>{r.username} <span className="text-slate-400">{r.email}</span></span>
-          <button className="text-sage-700 underline" onClick={() => onCreateLink(r.user_id)}>Create reset link</button>
+          <button className="text-sage-700 underline" aria-label={`Create reset link for ${r.username}`} onClick={() => onCreateLink(r.user_id)}>Create reset link</button>
         </div>
       ))}
+    </div>
+  );
+}
+
+type Storage = {
+  uploads_mb: number; uploads_max_total_mb: number; upload_max_file_mb: number;
+  disk_free_mb: number; min_free_disk_mb: number; photo_storage: "server" | "cloudinary";
+  cloudinary: { used_percent?: number; max_usage_percent: number } | null;
+};
+
+function Meter({ label, value, max, unit }: { label: string; value: number; max: number; unit: string }) {
+  const percent = Math.min(100, Math.round((value / Math.max(max, 1)) * 100));
+  const color = percent >= 90 ? "bg-rose-400" : percent >= 70 ? "bg-saffron-400" : "bg-sage-500";
+  return (
+    <div>
+      <div className="flex justify-between text-sm"><span>{label}</span><span className="text-slate-500">{value.toLocaleString()} / {max.toLocaleString()} {unit}</span></div>
+      <div className="h-2 rounded-full bg-sand-100 mt-1" role="progressbar" aria-label={label} aria-valuenow={percent}>
+        <div className={`h-2 rounded-full ${color}`} style={{ width: `${percent}%` }} />
+      </div>
+    </div>
+  );
+}
+
+function SiteStatus() {
+  const config = useAppConfig();
+  const [storage, setStorage] = useState<Storage | null>(null);
+  const [mailStatus, setMailStatus] = useState<{ ok: boolean; text: string } | null>(null);
+  useEffect(() => { api.get("/admin/storage").then((r) => setStorage(r.data)).catch(() => {}); }, []);
+
+  const sendTest = async () => {
+    setMailStatus(null);
+    try {
+      const { data } = await api.post("/admin/test-email");
+      setMailStatus({ ok: true, text: `Test email sent to ${data.to}.` });
+    } catch (err: any) {
+      setMailStatus({ ok: false, text: err?.response?.data?.detail || "Sending failed." });
+    }
+  };
+
+  return (
+    <div className="grid md:grid-cols-2 gap-3">
+      <div className="card p-4 space-y-3">
+        <h2 className="font-medium">Photo storage</h2>
+        {storage ? (
+          <>
+            <Meter label="Uploaded photos" value={storage.uploads_mb} max={storage.uploads_max_total_mb} unit="MB" />
+            <p className="text-xs text-slate-500">
+              {storage.disk_free_mb.toLocaleString()} MB free on the server (uploads pause below {storage.min_free_disk_mb.toLocaleString()} MB).
+              Each photo up to {storage.upload_max_file_mb} MB. Stored on: {storage.photo_storage}.
+            </p>
+            {storage.cloudinary && (
+              <Meter label="Cloudinary monthly credits" value={storage.cloudinary.used_percent ?? 0} max={storage.cloudinary.max_usage_percent} unit="%" />
+            )}
+          </>
+        ) : <p className="text-sm text-slate-500">Loading...</p>}
+      </div>
+      <div className="card p-4 space-y-3">
+        <h2 className="font-medium">Email</h2>
+        <p className="text-sm text-slate-600">
+          {config?.email_enabled
+            ? "Password reset emails are sent automatically."
+            : "Email is not set up: send password reset links by hand (see Password reset requests)."}
+        </p>
+        <button className="btn-secondary text-sm px-4 py-1.5" onClick={sendTest} disabled={!config?.email_enabled}>Send me a test email</button>
+        {mailStatus && <p className={`text-sm ${mailStatus.ok ? "text-green-700" : "text-red-600"}`}>{mailStatus.text}</p>}
+      </div>
     </div>
   );
 }
@@ -161,6 +227,7 @@ function OverviewTab() {
   return (
     <div className="space-y-3">
       {error && <p className="text-red-600 text-sm">{error}</p>}
+      <SiteStatus />
       <PasswordResetRequests onCreateLink={createResetLink} />
       {resetLink && (
         <ResetLinkBox
@@ -179,8 +246,9 @@ function OverviewTab() {
               <span className="text-xs bg-sage-100 text-sage-700 px-2 py-0.5 rounded">{u.role}</span>
             </div>
             <div className="flex gap-3">
-              <button className="text-sage-700 text-sm" onClick={() => createResetLink(u.id)}>Reset link</button>
+              <button className="text-sage-700 text-sm" aria-label={`Reset link for ${u.username}`} onClick={() => createResetLink(u.id)}>Reset link</button>
               <button className="text-red-600 text-sm"
+                aria-label={`Delete ${u.username}`}
                 onClick={() => askDelete(u.username, async () => {
                   await api.delete(`/users/${u.id}`); setUsers((p) => p.filter((x) => x.id !== u.id));
                 })}>Delete</button>
@@ -195,6 +263,7 @@ function OverviewTab() {
           <div key={a.id} className="border-b last:border-b-0 p-3 flex justify-between">
             <Link to={`/asanas/${a.id}`} className="text-sage-700 hover:underline">{a.english_name}</Link>
             <button className="text-red-600 text-sm"
+              aria-label={`Delete ${a.english_name}`}
               onClick={() => askDelete(a.english_name, async () => {
                 await api.delete(`/asanas/${a.id}`); setAsanas((p) => p.filter((x) => x.id !== a.id));
               })}>Delete</button>
@@ -208,6 +277,7 @@ function OverviewTab() {
           <div key={t.id} className="border-b last:border-b-0 p-3 flex justify-between">
             <Link to={`/transitions/${t.id}`} className="text-sage-700 hover:underline">{t.name}</Link>
             <button className="text-red-600 text-sm"
+              aria-label={`Delete ${t.name}`}
               onClick={() => askDelete(t.name, async () => {
                 await api.delete(`/transitions/${t.id}`); setTransitions((p) => p.filter((x) => x.id !== t.id));
               })}>Delete</button>
@@ -221,6 +291,7 @@ function OverviewTab() {
           <div key={f.id} className="border-b last:border-b-0 p-3 flex justify-between">
             <Link to={`/flows/${f.id}`} className="text-sage-700 hover:underline">{f.name}</Link>
             <button className="text-red-600 text-sm"
+              aria-label={`Delete ${f.name}`}
               onClick={() => askDelete(f.name, async () => {
                 await api.delete(`/flows/${f.id}`); setFlows((p) => p.filter((x) => x.id !== f.id));
               })}>Delete</button>
@@ -234,6 +305,7 @@ function OverviewTab() {
           <div key={c.id} className="border-b last:border-b-0 p-3 flex justify-between">
             <Link to={`/classes/${c.id}`} className="text-sage-700 hover:underline">{c.name}</Link>
             <button className="text-red-600 text-sm"
+              aria-label={`Delete ${c.name}`}
               onClick={() => askDelete(c.name, async () => {
                 await api.delete(`/classes/${c.id}`); setClasses((p) => p.filter((x) => x.id !== c.id));
               })}>Delete</button>
@@ -247,6 +319,7 @@ function OverviewTab() {
           <div key={p.id} className="border-b last:border-b-0 p-3 flex justify-between">
             <Link to={`/photos/${p.id}`} className="text-sage-700 hover:underline">#{p.id} asana={p.asana_id} ({p.type})</Link>
             <button className="text-red-600 text-sm"
+              aria-label={`Delete photo #${p.id}`}
               onClick={() => askDelete(`photo #${p.id}`, async () => {
                 await api.delete(`/photos/${p.id}`); setPhotos((prev) => prev.filter((x) => x.id !== p.id));
               })}>Delete</button>
@@ -411,16 +484,17 @@ function ActivityLogTab() {
   return (
     <div>
       <div className="flex gap-2 mb-3">
-        <select value={actionFilter} onChange={(e) => { setActionFilter(e.target.value); setPage(1); }} className="input-base px-2 py-1 text-sm">
+        <select aria-label="Action" value={actionFilter} onChange={(e) => { setActionFilter(e.target.value); setPage(1); }} className="input-base px-2 py-1 text-sm">
           <option value="">All actions</option>
           <option value="rank">Rank</option>
           <option value="upload">Upload</option>
           <option value="delete">Delete</option>
           <option value="create">Create</option>
+          <option value="update">Update</option>
           <option value="login">Login</option>
           <option value="register">Register</option>
         </select>
-        <select value={entityFilter} onChange={(e) => { setEntityFilter(e.target.value); setPage(1); }} className="input-base px-2 py-1 text-sm">
+        <select aria-label="Entity" value={entityFilter} onChange={(e) => { setEntityFilter(e.target.value); setPage(1); }} className="input-base px-2 py-1 text-sm">
           <option value="">All entities</option>
           <option value="asana">Asana</option>
           <option value="photo">Photo</option>
@@ -518,7 +592,7 @@ function DBBrowserTab() {
   return (
     <div>
       {error && <p className="text-red-600 text-sm mb-2">{error}</p>}
-      <select value={selected} onChange={(e) => { setSelected(e.target.value); setPage(1); }} className="input-base px-3 py-1 mb-3">
+      <select aria-label="Table" value={selected} onChange={(e) => { setSelected(e.target.value); setPage(1); }} className="input-base px-3 py-1 mb-3">
         <option value="">Select a table...</option>
         {tables.map((t) => <option key={t} value={t}>{t}</option>)}
       </select>
@@ -581,6 +655,7 @@ function SQLQueryTab() {
         onChange={(e) => setSql(e.target.value)}
         className="w-full input-base p-3 font-mono text-sm h-32"
         placeholder="Enter a SELECT query..."
+        aria-label="SQL query"
       />
       <button
         onClick={handleRun}

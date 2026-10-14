@@ -30,12 +30,12 @@ export function TransitionsPage() {
   const [confirmTarget, setConfirmTarget] = useState<{ id: number; label: string } | null>(null);
 
   const refresh = () =>
-    api.get("/transitions/top").then((r) => setItems(r.data)).catch(() => setError("Failed to load transitions."));
+    fetchAll<Transition>("/transitions").then(setItems).catch(() => setError("Failed to load transitions."));
 
   useEffect(() => {
-    Promise.all([api.get("/transitions/top"), fetchAll<Asana>("/asanas")])
-      .then(([transRes, rows]) => {
-        setItems(transRes.data);
+    Promise.all([fetchAll<Transition>("/transitions"), fetchAll<Asana>("/asanas")])
+      .then(([allTransitions, rows]) => {
+        setItems(allTransitions);
         setAsanas(rows);
         const map: Record<number, Asana> = {};
         rows.forEach((a) => { map[a.id] = a; });
@@ -93,22 +93,22 @@ export function TransitionsPage() {
   if (error) return <p className="text-red-600">{error}</p>;
   return (
     <div className="space-y-4">
-      <h1 className="text-2xl font-semibold text-sage-700">Transitions (Top 10)</h1>
+      <h1 className="text-2xl font-semibold text-sage-700">Transitions</h1>
 
       {user?.role === "admin" && (
         <div className="card p-4 space-y-2">
           <div className="grid md:grid-cols-4 gap-2">
-            <input className="input-base px-3 py-2 md:col-span-2" value={name} onChange={(e) => setName(e.target.value)} placeholder="Transition name (required)..." />
-            <select className={`border rounded px-2 ${startAsanaId === endAsanaId ? "border-red-400" : "border-sand-200"}`} value={startAsanaId} onChange={(e) => setStartAsanaId(Number(e.target.value))}>
+            <input className="input-base px-3 py-2 md:col-span-2" value={name} onChange={(e) => setName(e.target.value)} placeholder="Transition name (required)..." aria-label="Transition name" />
+            <select className={`border rounded px-2 ${startAsanaId === endAsanaId ? "border-red-400" : "border-sand-200"}`} aria-label="Start pose" value={startAsanaId} onChange={(e) => setStartAsanaId(Number(e.target.value))}>
               {asanas.map((a) => <option key={`s-${a.id}`} value={a.id}>{a.english_name}</option>)}
             </select>
-            <select className={`border rounded px-2 ${startAsanaId === endAsanaId ? "border-red-400" : "border-sand-200"}`} value={endAsanaId} onChange={(e) => setEndAsanaId(Number(e.target.value))}>
+            <select className={`border rounded px-2 ${startAsanaId === endAsanaId ? "border-red-400" : "border-sand-200"}`} aria-label="End pose" value={endAsanaId} onChange={(e) => setEndAsanaId(Number(e.target.value))}>
               {asanas.map((a) => <option key={`e-${a.id}`} value={a.id}>{a.english_name}</option>)}
             </select>
           </div>
           {startAsanaId === endAsanaId && <p className="text-xs text-red-500">Start and end pose must be different.</p>}
           <div className="flex items-center gap-2">
-            <select className="input-base px-2 py-1 text-sm" value={difficulty} onChange={(e) => setDifficulty(Number(e.target.value))}>
+            <select aria-label="Difficulty" className="input-base px-2 py-1 text-sm" value={difficulty} onChange={(e) => setDifficulty(Number(e.target.value))}>
               {[1, 2, 3, 4, 5].map((d) => <option key={d} value={d}>Difficulty {d}</option>)}
             </select>
             <button onClick={create} disabled={submitting || !name.trim() || startAsanaId === endAsanaId}
@@ -129,17 +129,17 @@ export function TransitionsPage() {
             <div key={t.id} className="card p-4">
               {isEditing ? (
                 <div className="space-y-2">
-                  <input className="input-base px-2 py-1 w-full text-sm" value={editName} onChange={(e) => setEditName(e.target.value)} />
+                  <input aria-label="Edit name" className="input-base px-2 py-1 w-full text-sm" value={editName} onChange={(e) => setEditName(e.target.value)} />
                   <div className="grid grid-cols-2 gap-2">
-                    <select className="input-base px-2 py-1 text-sm" value={editStart} onChange={(e) => setEditStart(Number(e.target.value))}>
+                    <select aria-label="Edit start pose" className="input-base px-2 py-1 text-sm" value={editStart} onChange={(e) => setEditStart(Number(e.target.value))}>
                       {asanas.map((a) => <option key={`es-${a.id}`} value={a.id}>{a.english_name}</option>)}
                     </select>
-                    <select className="input-base px-2 py-1 text-sm" value={editEnd} onChange={(e) => setEditEnd(Number(e.target.value))}>
+                    <select aria-label="Edit end pose" className="input-base px-2 py-1 text-sm" value={editEnd} onChange={(e) => setEditEnd(Number(e.target.value))}>
                       {asanas.map((a) => <option key={`ee-${a.id}`} value={a.id}>{a.english_name}</option>)}
                     </select>
                   </div>
                   {editStart === editEnd && <p className="text-xs text-red-500">Positions must differ.</p>}
-                  <select className="input-base px-2 py-1 text-sm" value={editDifficulty} onChange={(e) => setEditDifficulty(Number(e.target.value))}>
+                  <select aria-label="Edit difficulty" className="input-base px-2 py-1 text-sm" value={editDifficulty} onChange={(e) => setEditDifficulty(Number(e.target.value))}>
                     {[1, 2, 3, 4, 5].map((d) => <option key={d} value={d}>Difficulty {d}</option>)}
                   </select>
                   <div className="flex gap-2">
@@ -163,9 +163,9 @@ export function TransitionsPage() {
                       <button onClick={() => {
                         setEditingId(t.id); setEditName(t.name); setEditStart(t.start_asana_id);
                         setEditEnd(t.end_asana_id); setEditDifficulty(t.difficulty_level);
-                      }} className="text-xs text-sage-600 underline">Edit</button>
+                      }} aria-label={`Edit ${t.name}`} className="text-xs text-sage-600 underline">Edit</button>
                       <button onClick={() => { setConfirmTarget({ id: t.id, label: t.name }); setConfirmOpen(true); }}
-                        className="text-xs text-red-500 underline">Delete</button>
+                        aria-label={`Delete ${t.name}`} className="text-xs text-red-500 underline">Delete</button>
                     </div>
                   )}
                 </>

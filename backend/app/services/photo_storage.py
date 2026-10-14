@@ -12,6 +12,7 @@ from pathlib import Path
 from PIL import Image, ImageOps
 
 from app.core.config import get_settings
+from app.services.cloudinary_service import delete_image, extract_public_id
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
 DATA_ROOT = (REPO_ROOT / "data").resolve()
@@ -44,6 +45,19 @@ def resolve_photo_file(stored: str) -> Path | None:
 
 def is_uploaded_file(path: Path) -> bool:
     return path.resolve().is_relative_to(UPLOAD_ROOT)
+
+
+def remove_photo_file(stored: str) -> None:
+    """Delete a photo's file if the app owns it (an upload on disk or in Cloudinary).
+    Imported images are source files and stay where they are."""
+    if stored.startswith(("http://", "https://")):
+        public_id = extract_public_id(stored)
+        if public_id:
+            delete_image(public_id)
+        return
+    path = resolve_photo_file(stored)
+    if path is not None and is_uploaded_file(path):
+        path.unlink(missing_ok=True)
 
 
 def thumbnail(path: Path, width: int) -> Path:

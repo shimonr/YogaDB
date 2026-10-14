@@ -1,6 +1,6 @@
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
@@ -8,6 +8,8 @@ from app.core.database import LIKE_ESCAPE, contains_pattern, get_db
 from app.core.deps import get_current_admin
 from app.models import Asana, Transition
 from app.schemas import TransitionBase, TransitionOut
+from app.services.activity_service import client_ip, log_activity
+from app.services.ranking_service import delete_rankings
 
 router = APIRouter()
 
@@ -43,9 +45,10 @@ def top_transitions(
 
 @router.post("", response_model=TransitionOut)
 def create_transition(
+    request: Request,
     payload: TransitionBase,
     db: Annotated[Session, Depends(get_db)],
-    _admin=Depends(get_current_admin),
+    admin=Depends(get_current_admin),
 ) -> Transition:
     _validate_poses(db, payload)
     existing = db.query(Transition).filter(func.lower(Transition.name) == payload.name.lower()).first()
@@ -55,6 +58,7 @@ def create_transition(
     db.add(item)
     db.commit()
     db.refresh(item)
+    log_activity(db, admin.id, "create", "transition", item.id, {"name": item.name}, client_ip(request))
     return item
 
 
@@ -68,10 +72,11 @@ def get_transition(transition_id: int, db: Annotated[Session, Depends(get_db)]) 
 
 @router.put("/{transition_id}", response_model=TransitionOut)
 def update_transition(
+    request: Request,
     transition_id: int,
     payload: TransitionBase,
     db: Annotated[Session, Depends(get_db)],
-    _admin=Depends(get_current_admin),
+    admin=Depends(get_current_admin),
 ) -> Transition:
     item = db.query(Transition).filter(Transition.id == transition_id).first()
     if not item:
@@ -85,18 +90,23 @@ def update_transition(
     db.add(item)
     db.commit()
     db.refresh(item)
+    log_activity(db, admin.id, "update", "transition", item.id, {"name": item.name}, client_ip(request))
     return item
 
 
 @router.delete("/{transition_id}")
 def delete_transition(
+    request: Request,
     transition_id: int,
     db: Annotated[Session, Depends(get_db)],
-    _admin=Depends(get_current_admin),
+    admin=Depends(get_current_admin),
 ) -> dict:
     item = db.query(Transition).filter(Transition.id == transition_id).first()
     if not item:
         raise HTTPException(status_code=404, detail="Transition not found")
+    name = item.name
+    delete_rankings(db, "transition", [transition_id])
     db.delete(item)
     db.commit()
+    log_activity(db, admin.id, "delete", "transition", transition_id, {"name": name}, client_ip(request))
     return {"ok": True}

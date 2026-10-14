@@ -49,6 +49,11 @@ services:
       SMTP_PASSWORD: ${SMTP_PASSWORD:-}
       SMTP_FROM: ${SMTP_FROM:-YogaDB <no-reply@yogadb.local>}
       SMTP_TLS: ${SMTP_TLS:-true}
+      # Upload limits (keep the site inside the free tier; see docs/ENVIRONMENT.md).
+      UPLOAD_MAX_FILE_MB: ${UPLOAD_MAX_FILE_MB:-10}
+      UPLOADS_MAX_TOTAL_MB: ${UPLOADS_MAX_TOTAL_MB:-20480}
+      MIN_FREE_DISK_MB: ${MIN_FREE_DISK_MB:-5120}
+      CLOUDINARY_MAX_USAGE_PERCENT: ${CLOUDINARY_MAX_USAGE_PERCENT:-80}
     volumes:
       - ${ASANAS_DATA_DIR:-../../data/asanas}:/data/asanas:ro
       - uploads:/data/uploads   # user photo uploads (Cloudinary is used instead if configured)
@@ -109,6 +114,7 @@ services:
       BACKUP_CLOUDINARY_CLOUD_NAME: ${BACKUP_CLOUDINARY_CLOUD_NAME:-}
       BACKUP_CLOUDINARY_API_KEY: ${BACKUP_CLOUDINARY_API_KEY:-}
       BACKUP_CLOUDINARY_API_SECRET: ${BACKUP_CLOUDINARY_API_SECRET:-}
+      OFFSITE_MAX_USAGE_PERCENT: ${OFFSITE_MAX_USAGE_PERCENT:-80}
     volumes:
       - ${BACKUP_DIR:-/opt/backups/yogadb}:/backups:ro
     networks:

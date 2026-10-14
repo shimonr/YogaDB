@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import { api } from "../lib/api";
+import { api, fetchAll } from "../lib/api";
 import type { Asana } from "../lib/types";
 import { RankStars } from "../components/RankStars";
 import { photoFileUrl } from "../lib/photoUrl";
@@ -14,10 +14,10 @@ export function AsanasPage() {
   const [error, setError] = useState("");
 
   useEffect(() => {
-    Promise.all([api.get("/asanas/top"), api.get("/asanas")])
-      .then(([topRes, allRes]) => {
+    Promise.all([api.get("/asanas/top"), fetchAll<Asana>("/asanas")])
+      .then(([topRes, allAsanas]) => {
         setTop(topRes.data);
-        setAll(allRes.data);
+        setAll(allAsanas);
       })
       .catch(() => setError("Failed to load asanas."))
       .finally(() => setLoading(false));

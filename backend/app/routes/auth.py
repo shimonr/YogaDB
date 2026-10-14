@@ -13,6 +13,7 @@ from app.core.deps import get_current_user
 from app.core.security import create_access_token, get_password_hash, verify_password
 from app.models import User
 from app.schemas import ForgotPassword, PasswordChange, ProfileUpdate, ResetPassword, Token, UserCreate, UserOut
+from app.services.activity_service import log_activity
 from app.services.email import send_email
 from app.services.password_reset import consume_reset_token, create_reset_link
 
@@ -57,6 +58,7 @@ def register(request: Request, payload: UserCreate, db: Annotated[Session, Depen
     db.add(user)
     db.commit()
     db.refresh(user)
+    log_activity(db, user.id, "register", "user", user.id, None, _client_ip(request))
     return user
 
 
@@ -75,6 +77,7 @@ def login(
         failures.append(time.time())
         raise HTTPException(status_code=400, detail="Incorrect username or password")
     _login_failures.pop(key, None)
+    log_activity(db, user.id, "login", "user", user.id, None, _client_ip(request))
     token = create_access_token(
         subject=user.username,
         expires_delta=timedelta(minutes=settings.access_token_expire_minutes),

@@ -17,6 +17,7 @@ from app.models import Asana, Photo
 from app.services.photo_storage import to_stored_path
 
 IMAGE_SUFFIXES = {".jpg", ".jpeg", ".png", ".webp", ".gif"}
+NO_SANSKRIT = "No Sanskrit"  # CSV value (or blank) for poses without a Sanskrit name
 APOSTROPHE_CHARS = "'`´''‚‛"
 HYPHEN_CHARS = "-‐‑‒–—―"
 
@@ -76,9 +77,9 @@ def load_asanas_from_csv(csv_path: Path) -> list[dict]:
     if not csv_path.is_file():
         raise FileNotFoundError(f"Asana inventory CSV not found: {csv_path}")
 
-    records: list[dict] = []
     last_error: UnicodeDecodeError | None = None
     for encoding in ("utf-8-sig", "cp1252"):
+        records: list[dict] = []  # restart if a later part of the file fails to decode
         try:
             with csv_path.open("r", newline="", encoding=encoding) as handle:
                 reader = csv.DictReader(handle)
@@ -90,7 +91,10 @@ def load_asanas_from_csv(csv_path: Path) -> list[dict]:
                     if not english_name:
                         continue
 
-                    sanskrit_name = (row.get("sanskrit_name") or english_name).strip()
+                    sanskrit_name = (row.get("sanskrit_name") or "").strip() or NO_SANSKRIT
+                    # An "id" column keeps ids stable when rows are removed or reordered;
+                    # without it the row number is the id.
+                    asana_id = _parse_int(row.get("id"), 0) or row_index
                     alt1, alt2 = _split_alt_names(row.get("alt_names"))
                     difficulty = _parse_int(row.get("difficulty_score"), 2)
                     pose_type = _normalize_label(row.get("pose_family"), "standing")
@@ -99,14 +103,14 @@ def load_asanas_from_csv(csv_path: Path) -> list[dict]:
 
                     records.append(
                         {
-                            "id": row_index,
+                            "id": asana_id,
                             "english_name": english_name,
                             "sanskrit_name": sanskrit_name,
                             "alternative_name_1": alt1,
                             "alternative_name_2": alt2,
                             "difficulty_level": difficulty,
                             "benefits": benefits,
-                            "is_classic": row_index <= 84,
+                            "is_classic": asana_id <= 84,
                             "type": pose_type,
                             "category": category,
                             "rank": 50,
@@ -118,7 +122,7 @@ def load_asanas_from_csv(csv_path: Path) -> list[dict]:
 
     if last_error:
         raise last_error
-    return records
+    return []
 
 
 def discover_photos_for_asana(

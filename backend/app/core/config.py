@@ -54,6 +54,11 @@ class Settings(BaseSettings):
     smtp_password: str = ""
     smtp_from: str = "YogaDB <no-reply@yogadb.local>"
     smtp_tls: bool = True
+    # Upload limits (see app/services/storage_limits.py).
+    upload_max_file_mb: int = 10
+    uploads_max_total_mb: int = 20 * 1024
+    min_free_disk_mb: int = 5 * 1024
+    cloudinary_max_usage_percent: float = 80.0
     # QA copy only: enables the "reset QA to a clean state" admin action.
     qa_mode: bool = False
 

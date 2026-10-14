@@ -60,6 +60,7 @@ export function ClassDetailPage() {
           <div className="mt-3 flex items-center gap-2">
             <input
               type="number"
+              aria-label="Your rank (1-100)"
               min={1}
               max={100}
               value={rank}

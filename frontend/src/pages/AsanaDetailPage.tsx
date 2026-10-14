@@ -35,6 +35,7 @@ function PhotoCard({ photo, user, onRanked }: { photo: Photo; user: any; onRanke
         <div className="mt-2 flex items-center gap-2">
           <input
             type="number"
+            aria-label="Photo rank (1-100)"
             min={1}
             max={100}
             value={photoRank}
@@ -133,6 +134,7 @@ export function AsanaDetailPage() {
         <div className="mt-4 flex items-center gap-2">
           <input
             type="number"
+            aria-label="Your rank (1-100)"
             min={1}
             max={100}
             value={rank}

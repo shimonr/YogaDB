@@ -107,7 +107,7 @@ function Breadcrumbs() {
   }
 
   return (
-    <nav className="text-sm text-slate-500 flex items-center gap-1 flex-wrap pt-1">
+    <nav aria-label="Breadcrumb" className="text-sm text-slate-500 flex items-center gap-1 flex-wrap pt-1">
       <Link to="/" className="hover:text-sage-700">YogaDB</Link>
       {crumbs.map((c, i) => (
         <span key={c.to} className="flex items-center gap-1">

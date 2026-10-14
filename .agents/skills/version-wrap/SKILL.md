@@ -49,7 +49,7 @@ scripts/deploy.sh qa
 scripts/verify-release.sh qa --site-only --e2e
 ```
 
-Fix what fails, push, and repeat this step.
+Fix what fails, push, and repeat this step. New or changed browser tests can be run locally first against the dev server (`frontend/e2e/COVERAGE.md`), which is faster than a QA round trip.
 
 Then improve this skill now, not after the release: add what this session taught you (a failure, a manual workaround, a missing check) to "Lessons" below or fix the step itself, and commit it with the candidate. Changes made after the bump need another release, because verification requires the deployed commit to be HEAD.
 
@@ -65,7 +65,7 @@ Then improve this skill now, not after the release: add what this session taught
 git add -A && git status --short          # only the reviewed files plus VERSION, package*.json, docs
 git commit -m "Release <version>" -m "<two or three lines: what this release contains>"
 git tag -a v<version> -m "YogaDB <version>"
-git push origin master && git push origin v<version>
+git push origin master && git push origin v<version>   # tag push "remote rejected (failed)": retry once
 scripts/github-release.sh                  # GitHub release with the changelog section as notes
 ```
 
@@ -77,6 +77,8 @@ scripts/deploy.sh
 ```
 
 Each deploy fails unless the site reports the pushed version and commit at `/api/health`.
+
+Data changes that need the new code (a new CSV column, a data clean-up) go after the code is on the server: QA re-imports the asana CSV on every deploy, production only when you run the import (`deploying-to-oracle` skill). The CSV in `/opt/apps/yogadb-data/asanas` is shared by both stacks, so upload it only once both run code that understands it, or run the import on QA alone.
 
 ## 6. Verify
 
@@ -101,4 +103,7 @@ Version, what changed (from the changelog), links to the GitHub release and both
 - 2026-10-14: the orb's Amp secrets include `CLOUDINARY_*`; tests clear them in `conftest.py`, and a locally started API must unset them (see `AGENTS.md`).
 - 2026-10-14: a manual `gh workflow run uptime.yml` made the uptime check pass while the schedule still had not fired; scheduled runs are now checked separately (a warning, so a late GitHub schedule doesn't block a release).
 - 2026-10-14: lessons found after the bump forced 0.3.3 right after 0.3.2; skill improvements now happen in step 3, before the bump.
+- 2026-10-14 (0.4.0): the tag push failed once with "remote rejected (failed)" and worked on retry; step 4 says so.
+- 2026-10-14 (0.4.0): the new asana CSV (with an `id` column) had to wait until the importer that reads it was deployed; step 5 now says where data changes go.
+- 2026-10-14 (0.4.0): new browser tests failed on selectors several times; running them locally against the dev server first (vite proxies `/api`) saved QA round trips.
 - 2026-10-14: PowerShell variables are case-insensitive (`$Target` = `$target`); keep that in mind when editing `scripts/*.ps1`.

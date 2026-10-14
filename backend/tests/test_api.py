@@ -1,6 +1,6 @@
 from pathlib import Path
 
-from app.models import Asana, Photo, User
+from app.models import Asana, Photo, Ranking, User
 from app.services.photo_storage import UPLOAD_ROOT
 from tests.conftest import TestingSessionLocal
 
@@ -664,6 +664,28 @@ class TestPhotos:
         finally:
             path.unlink(missing_ok=True)
 
+    def test_deleting_asana_removes_its_uploads_and_all_related_ratings(self, client, user_headers, admin_headers):
+        photo_id = client.post(
+            "/api/photos/upload", data={"asana_id": "1"}, files={"file": ("pose.jpg", self.JPEG, "image/jpeg")}, headers=user_headers
+        ).json()["id"]
+        db = TestingSessionLocal()
+        path = UPLOAD_ROOT.parent / db.get(Photo, photo_id).local_path
+        db.close()
+        transition_id = client.post(
+            "/api/transitions", json={"name": "Up", "start_asana_id": 2, "end_asana_id": 1, "difficulty_level": 1, "rank": 50}, headers=admin_headers
+        ).json()["id"]
+        for target_type, target_id in [("asana", 1), ("photo", photo_id), ("transition", transition_id), ("asana", 2)]:
+            client.post("/api/ranking/rank", json={"type": target_type, "target_id": target_id, "rank": 90}, headers=user_headers)
+        try:
+            assert client.delete("/api/asanas/1", headers=admin_headers).status_code == 200
+            assert not path.exists()
+            db = TestingSessionLocal()
+            left = {(r.type, r.target_id) for r in db.query(Ranking)}
+            db.close()
+            assert left == {("asana", 2)}  # only the rating of the asana that still exists
+        finally:
+            path.unlink(missing_ok=True)
+
     def test_deleting_imported_photo_keeps_source_file(self, client, admin_headers, images_dir):
         source = images_dir / "Tree_Pose" / "Tree_Pose_01.jpg"
         source.parent.mkdir()
@@ -678,6 +700,54 @@ class TestPhotos:
         assert client.get(f"/api/photos/{photo_id}/file").content == self.JPEG
         assert client.delete(f"/api/photos/{photo_id}", headers=admin_headers).status_code == 200
         assert source.is_file()
+
+    def _upload(self, client, headers, size=0):
+        return client.post(
+            "/api/photos/upload",
+            data={"asana_id": "1"},
+            files={"file": ("pose.jpg", self.JPEG + b"0" * size, "image/jpeg")},
+            headers=headers,
+        )
+
+    def test_upload_limits(self, client, user_headers, monkeypatch, tmp_path):
+        from app.core.config import get_settings
+        from app.services import photo_storage
+
+        monkeypatch.setattr(photo_storage, "UPLOAD_ROOT", tmp_path / "uploads")
+        settings = get_settings()
+        monkeypatch.setattr(settings, "upload_max_file_mb", 1)
+        r = self._upload(client, user_headers, size=1024 * 1024)
+        assert r.status_code == 413 and "max 1 MB" in r.json()["detail"]
+
+        monkeypatch.setattr(settings, "uploads_max_total_mb", 0)  # storage "full"
+        r = self._upload(client, user_headers)
+        assert r.status_code == 507 and "storage is full" in r.json()["detail"]
+
+        monkeypatch.setattr(settings, "uploads_max_total_mb", 100)
+        monkeypatch.setattr(settings, "min_free_disk_mb", 10**9)  # pretend the disk is nearly full
+        r = self._upload(client, user_headers)
+        assert r.status_code == 507 and "low on disk space" in r.json()["detail"]
+
+        monkeypatch.setattr(settings, "min_free_disk_mb", 0)
+        assert self._upload(client, user_headers).status_code == 201
+
+    def test_cloudinary_uploads_stop_at_the_usage_limit(self, client, user_headers, monkeypatch):
+        from app.core.config import get_settings
+        from app.routes import photos
+        from app.services import storage_limits
+
+        monkeypatch.setattr(get_settings(), "cloudinary_cloud_name", "demo")
+        monkeypatch.setattr(photos, "upload_image", lambda content, folder, filename: f"https://res.cloudinary.com/demo/{filename}.jpg")
+        monkeypatch.setattr(storage_limits, "cloudinary_usage", lambda force=False: {"used_percent": 85.0})
+        r = self._upload(client, user_headers)
+        assert r.status_code == 507 and "monthly limit" in r.json()["detail"]
+        monkeypatch.setattr(storage_limits, "cloudinary_usage", lambda force=False: {"used_percent": 10.0})
+        assert self._upload(client, user_headers).status_code == 201
+
+    def test_storage_status_for_admins(self, client, admin_headers, user_headers):
+        assert client.get("/api/admin/storage", headers=user_headers).status_code == 403
+        body = client.get("/api/admin/storage", headers=admin_headers).json()
+        assert body["photo_storage"] == "server" and body["uploads_max_total_mb"] == 20 * 1024
 
     def test_resized_photo(self, client, admin_headers, images_dir, monkeypatch, tmp_path):
         import io
@@ -785,6 +855,23 @@ class TestAdminDatabase:
     def test_multiple_statements_rejected(self, client, admin_headers):
         r = client.post("/api/admin/query", json={"sql": "SELECT 1; DROP TABLE users"}, headers=admin_headers)
         assert r.status_code == 400
+
+    def test_activity_log_records_sign_ins_and_admin_changes(self, client, admin_headers, user_headers):
+        t = client.post("/api/transitions", json={"name": "Up", "start_asana_id": 1, "end_asana_id": 2, "difficulty_level": 1, "rank": 50}, headers=admin_headers).json()
+        client.put(f"/api/transitions/{t['id']}", json={"name": "Up 2", "start_asana_id": 2, "end_asana_id": 1, "difficulty_level": 2, "rank": 50}, headers=admin_headers)
+        client.delete(f"/api/transitions/{t['id']}", headers=admin_headers)
+        user_id = next(u["id"] for u in client.get("/api/users", headers=admin_headers).json() if u["username"] == "regular_user")
+        client.delete(f"/api/users/{user_id}", headers=admin_headers)
+
+        logs = client.get("/api/admin/activity-logs?per_page=50", headers=admin_headers).json()
+        seen = {(log["action"], log["entity_type"], log["entity_id"]) for log in logs}
+        assert {
+            ("register", "user", user_id), ("login", "user", user_id),
+            ("create", "transition", t["id"]), ("update", "transition", t["id"]), ("delete", "transition", t["id"]),
+            ("delete", "user", user_id),
+        } <= seen
+        deleted = next(log for log in logs if log["action"] == "delete" and log["entity_type"] == "transition")
+        assert "Up 2" in deleted["details"]  # the name survives the deletion
 
 
 class TestHealth:
@@ -954,28 +1041,86 @@ class TestQAReset:
 
 
 class TestOffsiteBackup:
-    def test_uploads_new_files_skips_large_and_known_and_prunes_old(self, tmp_path, monkeypatch):
-        from datetime import UTC, datetime, timedelta
-
+    def _fake(self, monkeypatch, tmp_path, remote, used_percent=2.0):
         from app.services import offsite_backup
 
         monkeypatch.setattr(offsite_backup, "BACKUP_DIR", tmp_path)
         monkeypatch.setattr(offsite_backup, "MAX_BYTES", 100)
         monkeypatch.setenv("BACKUP_LABEL", "yogadb")
-        (tmp_path / "yogadb-2026-10-13.sql.gz").write_bytes(b"x" * 10)   # already remote
-        (tmp_path / "yogadb-2026-10-14.sql.gz").write_bytes(b"x" * 10)   # new
-        (tmp_path / "uploads-2026-10-14.tar.gz").write_bytes(b"x" * 500)  # too large
+        uploaded, deleted = {}, []
+        monkeypatch.setattr(offsite_backup.cloudinary.api, "resources", lambda **kw: {"resources": remote})
+        monkeypatch.setattr(offsite_backup.cloudinary.api, "usage", lambda: {"credits": {"used_percent": used_percent}})
+        monkeypatch.setattr(
+            offsite_backup.cloudinary.uploader, "upload",
+            lambda src, **kw: uploaded.__setitem__(kw["public_id"], src.read() if hasattr(src, "read") else open(src, "rb").read()),
+        )
+        monkeypatch.setattr(offsite_backup.cloudinary.api, "delete_resources", lambda ids, **kw: deleted.extend(ids))
+        return offsite_backup, uploaded, deleted
+
+    def test_uploads_new_files_splits_large_skips_known_and_prunes_old(self, tmp_path, monkeypatch):
+        from datetime import UTC, datetime, timedelta
+
         now = datetime.now(UTC).isoformat().replace("+00:00", "Z")
         old = (datetime.now(UTC) - timedelta(days=40)).isoformat().replace("+00:00", "Z")
         remote = [
             {"public_id": "yogadb-backups/yogadb/yogadb-2026-10-13.sql.gz", "created_at": now},
             {"public_id": "yogadb-backups/yogadb/yogadb-2026-09-01.sql.gz", "created_at": old},
         ]
-        uploaded, deleted = [], []
-        monkeypatch.setattr(offsite_backup.cloudinary.api, "resources", lambda **kw: {"resources": remote})
-        monkeypatch.setattr(offsite_backup.cloudinary.uploader, "upload", lambda path, **kw: uploaded.append(kw["public_id"]))
-        monkeypatch.setattr(offsite_backup.cloudinary.api, "delete_resources", lambda ids, **kw: deleted.extend(ids))
+        offsite_backup, uploaded, deleted = self._fake(monkeypatch, tmp_path, remote)
+        (tmp_path / "yogadb-2026-10-13.sql.gz").write_bytes(b"x" * 10)   # already remote
+        (tmp_path / "yogadb-2026-10-14.sql.gz").write_bytes(b"y" * 10)   # new
+        big = bytes(range(256)) * 1                                      # 256 bytes -> 3 parts of <= 100
+        (tmp_path / "uploads-2026-10-14.tar.gz").write_bytes(big)
 
-        assert offsite_backup.sync_once() == {"uploaded": 1, "skipped_large": 1, "deleted": 1}
-        assert uploaded == ["yogadb-backups/yogadb/yogadb-2026-10-14.sql.gz"]
+        assert offsite_backup.sync_once() == {"uploaded": 2, "split": 1, "deleted": 1, "paused_for_quota": 0}
+        parts = [k for k in sorted(uploaded) if k.startswith("yogadb-backups/yogadb/uploads-")]
+        assert parts == [f"yogadb-backups/yogadb/uploads-2026-10-14.tar.gz.part0{i}" for i in (1, 2, 3)]
+        assert b"".join(uploaded[p] for p in parts) == big
+        assert "yogadb-backups/yogadb/yogadb-2026-10-14.sql.gz" in uploaded
         assert deleted == ["yogadb-backups/yogadb/yogadb-2026-09-01.sql.gz"]
+
+    def test_pauses_when_cloudinary_quota_is_nearly_used(self, tmp_path, monkeypatch):
+        offsite_backup, uploaded, _ = self._fake(monkeypatch, tmp_path, [], used_percent=85.0)
+        (tmp_path / "yogadb-2026-10-14.sql.gz").write_bytes(b"y" * 10)
+        assert offsite_backup.sync_once()["paused_for_quota"] == 1
+        assert uploaded == {}
+
+
+class TestCsvParsing:
+    HEADER = "english_name,sanskrit_name,alt_names,difficulty_score,pose_family,primary_category,benefits\n"
+
+    def test_id_column_keeps_ids_and_blank_sanskrit_becomes_no_sanskrit(self, tmp_path):
+        from app.services.asana_import import NO_SANSKRIT, load_asanas_from_csv
+
+        csv_file = tmp_path / "a.csv"
+        csv_file.write_text("id," + self.HEADER + "1,Mountain Pose,Tadasana,,1,Standing,Focus,x\n"
+                            "3,Wall Sit,,,2,Standing,Strength,y\n", encoding="utf-8")
+        rows = load_asanas_from_csv(csv_file)
+        assert [(r["id"], r["english_name"], r["sanskrit_name"]) for r in rows] == [
+            (1, "Mountain Pose", "Tadasana"), (3, "Wall Sit", NO_SANSKRIT)]
+
+    def test_cp1252_file_decoded_once_without_duplicates(self, tmp_path):
+        from app.services.asana_import import load_asanas_from_csv
+
+        filler = "".join(f"Pose {i},S{i},,1,Standing,Focus,{'b' * 80}\n" for i in range(150))  # > one read buffer
+        csv_file = tmp_path / "a.csv"
+        csv_file.write_bytes((self.HEADER + filler + "Child\u2019s Pose,Balasana,,1,Resting,Relaxation,z\n").encode("cp1252"))
+        rows = load_asanas_from_csv(csv_file)
+        assert len(rows) == 151
+        assert rows[-1]["english_name"] == "Child\u2019s Pose"
+
+
+
+class TestTestEmail:
+    def test_reports_missing_configuration_and_sends_when_configured(self, client, admin_headers, monkeypatch):
+        from app.services import email as email_service
+
+        r = client.post("/api/admin/test-email", headers=admin_headers)
+        assert r.status_code == 400
+        sent = []
+        monkeypatch.setattr(email_service, "email_enabled", lambda: True)
+        monkeypatch.setattr(email_service, "send_email", lambda to, subject, body: sent.append(to) or True)
+        r = client.post("/api/admin/test-email", headers=admin_headers)
+        assert r.status_code == 200 and sent == ["admin@example.com"]
+        monkeypatch.setattr(email_service, "send_email", lambda *a: False)
+        assert client.post("/api/admin/test-email", headers=admin_headers).status_code == 502
