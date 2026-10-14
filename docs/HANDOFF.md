@@ -29,7 +29,7 @@ Snapshot of where YogaDB stands; the `version-wrap` skill rewrites it at the end
 
 ## Still open
 
-- **Data:** 12 fitness exercises have no Sanskrit name (rows 77, 79–82, 85, 92–94, 97–99 of the CSV); rows 93 and 99 are both "Standing Quad Stretch". The VM's CSV has 12 Sanskrit names filled that the owner's PC copy may not have yet (copy it back with the `scp` command in the 2026-10-13 session, or re-add them on the PC before the next `upload-photos.cmd`).
+- **Data:** 12 fitness exercises have no Sanskrit name (rows 77, 79–82, 85, 92–94, 97–99 of the CSV); rows 93 and 99 are both "Standing Quad Stretch". The owner's PC CSV matches the VM again (copied back on 2026-10-13, including the 12 filled Sanskrit names).
 - **Backups:** only on the VM plus whatever `download-backups.cmd` copied; no automatic off-site copy (Oracle Object Storage would need OCI credentials).
 - **Accounts:** no "forgot password" email flow (needs an email provider); the admin email is still `shimon@example.com` until changed on the Account page.
 - **Free-tier backup:** not exercised since the Oracle move; Cloudinary cloud name capitalization may break uploads there.
