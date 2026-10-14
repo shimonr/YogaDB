@@ -2,6 +2,12 @@
 
 Versions follow `MAJOR.MINOR.PATCH`. The version lives in `VERSION` (and `frontend/package.json`); the app shows it on the About page, in the sidebar and at `/api/health`. Releases are tagged `vX.Y.Z` and produced with the `version-wrap` skill.
 
+## 0.3.3 — 2026-10-14
+
+Internal
+- `verify-release.sh` checks the uptime schedule separately from manual runs (warning only), because a manual run had hidden that the schedule never fired.
+- `version-wrap` records its lessons before the version bump, so they don't need another release.
+
 ## 0.3.2 — 2026-10-14
 
 First run of the `version-wrap` skill; no app changes.

@@ -1,10 +1,10 @@
-# Session handoff — version 0.3.2 (2026-10-14)
+# Session handoff — version 0.3.3 (2026-10-14)
 
 Snapshot of where YogaDB stands; the `version-wrap` skill rewrites it at the end of each session. History of changes: `CHANGELOG.md` and git tags. Earlier session threads: https://ampcode.com/threads/T-01a126c7-3226-76bb-9da0-c62acc7157e3
 
 ## Where things stand
 
-- **Version 0.3.2** (tag `v0.3.2`, [GitHub release](https://github.com/shimonr/YogaDB/releases/tag/v0.3.2)): the app is the same as 0.3.1 (password reset, QA reset and test mailbox, off-site backups, new design); 0.3.2 only improves the release tooling. The QA testing phase runs on this version. CI (lint, tests, migrations check, build) passes on every push.
+- **Version 0.3.3** (tag `v0.3.3`, [GitHub release](https://github.com/shimonr/YogaDB/releases/tag/v0.3.3)): the app is the same as 0.3.1 (password reset, QA reset and test mailbox, off-site backups, new design); 0.3.2 and 0.3.3 only improve the release tooling (first `version-wrap` run). The QA testing phase runs on this version. CI (lint, tests, migrations check, build) passes on every push.
 - **Production:** https://yogadb.129-159-8-242.sslip.io on the Oracle VM `ubuntu@129.159.8.242` (Ubuntu 24.04 ARM, 4 cores, 23 GB RAM, 96 GB disk). 106 asanas, 1,059 photos, real data.
 - **QA copy:** https://qa.yogadb.129-159-8-242.sslip.io, own database, same photos, sample transitions/flows/classes, "Reset QA" in Admin → QA Tools, test mailbox https://mail.qa.yogadb.129-159-8-242.sslip.io (user `qa`, password `MAILPIT_PASSWORD` in the QA `.env`).
 - **Free services** (Vercel/Render/Neon/Cloudinary) are a documented backup only; not verified recently.
@@ -37,5 +37,5 @@ Snapshot of where YogaDB stands; the `version-wrap` skill rewrites it at the end
 - **Backups:** off-site copies skip files over 10 MB (Cloudinary free plan limit); large upload archives would only be on the VM and the PC (`download-backups.cmd`).
 - **Free-tier backup:** not exercised since the Oracle move; Cloudinary cloud name capitalization may break uploads there.
 - **Tests:** no browser tests yet for admin editing of asanas/transitions/flows/classes.
-- **Uptime monitor:** GitHub never ran the original :00/:30 schedule; it now runs at :17/:47. `verify-release.sh prod` fails if the last run is older than 3 hours, so the next wrap will show whether the new schedule works.
+- **Uptime monitor:** GitHub never ran the original :00/:30 schedule; it now runs at :17/:47. `verify-release.sh prod` warns while no scheduled run has happened in the last 3 hours; if it still warns at the next wrap, the schedule is not firing (check https://www.githubstatus.com and the Actions tab).
 - **QA findings:** none reported yet; collect them for the next session.
