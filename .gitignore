@@ -24,6 +24,7 @@ backend/test_yogadb.db
 node_modules/
 dist/
 frontend/dist/
+*.tsbuildinfo
 
 # Runtime uploads
 data/uploads/

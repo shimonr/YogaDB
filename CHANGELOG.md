@@ -2,6 +2,30 @@
 
 Versions follow `MAJOR.MINOR.PATCH`. The version lives in `VERSION` (and `frontend/package.json`); the app shows it on the About page, in the sidebar and at `/api/health`. Releases are tagged `vX.Y.Z` and produced with the `version-wrap` skill.
 
+## 0.4.0 — 2026-10-14
+
+Added
+- Upload limits that keep the site inside the free tier: each photo at most 10 MB, all uploaded photos at most 20 GB, at least 5 GB left free on the server, and (with Cloudinary photo storage) at most 80% of the monthly credits. Uploads beyond a limit are refused with a clear message.
+- Admin → Overview shows photo storage use against the limits and the email status, with a "Send me a test email" button.
+- The activity log now records logins, registrations and every admin create, edit and delete (asanas, transitions, flows, classes, users), with an "Update" filter.
+- Browser tests for every page and every admin action (create/edit/delete transitions, flows and classes, reset links, deleting photos and users, all four games); see `frontend/e2e/COVERAGE.md`.
+
+Changed
+- Poses without a Sanskrit name show "No Sanskrit", and the Sanskrit games skip them.
+- Asanas "View All" shows every pose (it stopped at 50); the Transitions, Flows and Classes pages list every item and have page titles.
+- Deleting an item also deletes its ratings; deleting an asana also deletes the files of photos users uploaded for it.
+
+Fixed
+- Creating or deleting a class shows an error when it fails instead of doing nothing.
+
+Data
+- The asana CSV has an `id` column, so rows can be removed without renumbering poses. The duplicate "Standing Quad Stretch" (id 99) was removed; 105 asanas.
+
+Internal
+- Off-site backups split files over 10 MB into pieces and pause near the Cloudinary credit limit.
+- `scripts/set-server-env.sh` copies settings (e.g. SMTP) into a server `.env` without printing them; the upload limits can be set in the server `.env`.
+- The dev server proxies `/api`, so browser tests run locally.
+
 ## 0.3.3 — 2026-10-14
 
 Internal
