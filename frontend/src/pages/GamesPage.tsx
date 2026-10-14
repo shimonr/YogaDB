@@ -28,6 +28,21 @@ function pickN<T>(arr: T[], n: number): T[] {
 
 const isPlaceholder = (name: string) => /^asana\s+\d+/i.test(name.trim());
 
+/** Games only use asanas with a photo, an English name and a real Sanskrit name.
+ * The importer copies the English name into sanskrit_name when the CSV has none. */
+const hasFullDetails = (a: Asana): a is Asana & { cover_photo_id: number } => {
+  const english = a.english_name.trim();
+  const sanskrit = a.sanskrit_name.trim();
+  return (
+    !!a.cover_photo_id &&
+    !!english &&
+    !!sanskrit &&
+    sanskrit.toLowerCase() !== english.toLowerCase() &&
+    !isPlaceholder(english) &&
+    !isPlaceholder(sanskrit)
+  );
+};
+
 interface GameAsana {
   id: number;
   english_name: string;
@@ -48,11 +63,9 @@ export function GamesPage() {
   useEffect(() => {
     fetchAll<Asana>("/asanas").then((asanas) => {
       setAllAsanas(
-        asanas.flatMap((a) =>
-          a.cover_photo_id && !isPlaceholder(a.english_name) && !isPlaceholder(a.sanskrit_name)
-            ? [{ id: a.id, english_name: a.english_name, sanskrit_name: a.sanskrit_name, photoId: a.cover_photo_id }]
-            : []
-        )
+        asanas
+          .filter(hasFullDetails)
+          .map((a) => ({ id: a.id, english_name: a.english_name, sanskrit_name: a.sanskrit_name, photoId: a.cover_photo_id }))
       );
     }).finally(() => setLoading(false));
   }, []);
