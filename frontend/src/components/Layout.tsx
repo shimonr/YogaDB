@@ -6,6 +6,8 @@ import {
 } from "lucide-react";
 import { useAuth } from "../lib/auth";
 import { api } from "../lib/api";
+import { useAppConfig } from "../lib/appConfig";
+import { Lotus } from "./Lotus";
 
 const nav = [
   { to: "/", label: "Home", icon: Home },
@@ -105,7 +107,7 @@ function Breadcrumbs() {
   }
 
   return (
-    <nav className="text-sm text-slate-500 mb-4 flex items-center gap-1 flex-wrap">
+    <nav className="text-sm text-slate-500 flex items-center gap-1 flex-wrap pt-1">
       <Link to="/" className="hover:text-sage-700">YogaDB</Link>
       {crumbs.map((c, i) => (
         <span key={c.to} className="flex items-center gap-1">
@@ -131,7 +133,11 @@ function NavItems({ collapsed, isAdmin }: { collapsed: boolean; isAdmin: boolean
           to={item.to}
           end={item.to === "/"}
           className={({ isActive }) =>
-            `block rounded-md px-3 py-2 text-sm transition-colors ${isActive ? "bg-sage-100 text-sage-700" : "hover:bg-sage-100"}`
+            `block rounded-full px-3 py-2 text-sm font-medium transition ${
+              isActive
+                ? "bg-gradient-to-r from-lotus-100 via-lavender-100 to-sage-100 text-plum-800 shadow-sm"
+                : "text-slate-600 hover:bg-white/80 hover:text-plum-700"
+            }`
           }
         >
           {collapsed ? (
@@ -159,16 +165,22 @@ export function Layout() {
   const { user, logout } = useAuth();
   const location = useLocation();
   const isAdmin = user?.role === "admin";
+  const config = useAppConfig();
 
   // Close the phone menu after navigating.
   useEffect(() => setMenuOpen(false), [location.pathname]);
 
   return (
     <div className="min-h-screen md:flex">
+      {config?.qa_mode && (
+        <div className="fixed bottom-3 right-3 z-50 chip bg-saffron-300 text-plum-900 shadow-soft px-3 py-1">QA environment</div>
+      )}
       {/* Phone: top bar with a menu button */}
-      <div className="md:hidden bg-white border-b border-sand-100">
+      <div className="md:hidden bg-white/80 backdrop-blur border-b border-white sticky top-0 z-40">
         <div className="px-4 py-3 flex justify-between items-center">
-          <Link to="/" className="font-semibold text-sage-700">Yoga DB</Link>
+          <Link to="/" className="flex items-center gap-2 font-display text-2xl font-semibold text-plum-800">
+            <Lotus className="w-7 h-7" /> Yoga DB
+          </Link>
           <button
             className="p-1 text-sage-700"
             aria-label={menuOpen ? "Close menu" : "Open menu"}
@@ -186,9 +198,11 @@ export function Layout() {
       </div>
 
       {/* Tablet and desktop: collapsible sidebar */}
-      <aside className={`hidden md:flex md:flex-col bg-white border-r border-sand-100 ${collapsed ? "w-16" : "w-60"} transition-all`}>
-        <div className="p-4 border-b border-sand-100 flex justify-between items-center">
-          <span className={`font-semibold text-sage-700 ${collapsed ? "hidden" : "inline"}`}>Yoga DB</span>
+      <aside className={`hidden md:flex md:flex-col sticky top-0 h-screen bg-white/60 backdrop-blur border-r border-white ${collapsed ? "w-16" : "w-64"} transition-all`}>
+        <div className={`p-4 flex items-center ${collapsed ? "justify-center" : "justify-between"}`}>
+          <Link to="/" className={`flex items-center gap-2 font-display text-2xl font-semibold text-plum-800 ${collapsed ? "hidden" : ""}`}>
+            <Lotus className="w-8 h-8" /> Yoga DB
+          </Link>
           <button
             className="text-xs text-sage-700"
             aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
@@ -204,26 +218,26 @@ export function Layout() {
       </aside>
 
       <div className="flex-1 min-w-0">
-        <header className="bg-white border-b border-sand-100 px-4 py-3 md:p-4 flex justify-between items-start gap-3">
+        <header className="px-4 py-3 md:px-8 md:py-5 flex justify-between items-start gap-3">
           <Breadcrumbs />
-          <div className="text-sm shrink-0">
+          <div className="text-sm shrink-0 ml-auto">
             {user ? (
               <div className="flex items-center gap-3">
                 <Link to="/account" className="text-sage-700 hover:underline" title="Account settings">
                   {user.username}
                 </Link>
-                <button onClick={logout} className="bg-sage-500 text-white px-3 py-1 rounded">
+                <button onClick={logout} className="btn-secondary px-4 py-1">
                   Logout
                 </button>
               </div>
             ) : (
-              <NavLink to="/auth" className="bg-sage-500 text-white px-3 py-1 rounded">
+              <NavLink to="/auth" className="btn-primary px-3 py-1">
                 Login
               </NavLink>
             )}
           </div>
         </header>
-        <main className="p-4 md:p-6">
+        <main className="px-4 pb-10 md:px-8 max-w-6xl animate-fade-up" key={location.pathname}>
           <Outlet />
         </main>
       </div>

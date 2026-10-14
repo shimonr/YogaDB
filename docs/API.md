@@ -13,6 +13,8 @@ Interactive docs: http://localhost:8000/docs
 | GET | `/auth/me` | User | Current user |
 | PUT | `/auth/me` | User | Change email (`email`) |
 | POST | `/auth/me/password` | User | Change password (`current_password`, `new_password`) → 204 |
+| POST | `/auth/forgot-password` | — | `email` → 202, same answer whether or not the email exists; emails a 1-hour link if SMTP is set |
+| POST | `/auth/reset-password` | — | `token`, `new_password` → 204; tokens are one-time |
 
 ## Asanas
 
@@ -93,9 +95,13 @@ List endpoints return at most `limit` (≤ 200) items; page with `skip`.
 | POST | `/admin/query` | Admin | Run one read-only `SELECT`/`WITH` statement (max 1000 rows) |
 | GET | `/admin/ranking-logs` | Admin | Ranking history; query: `page`, `per_page` |
 | GET | `/admin/activity-logs` | Admin | Activity history; query: `page`, `per_page`, `user_id`, `action`, `entity_type` |
+| GET | `/admin/password-resets` | Admin | Users with an unused reset request from the last day |
+| POST | `/admin/users/{id}/reset-link` | Admin | One-time reset link (24 hours) to send to the user |
+| POST | `/admin/qa/reset` | Admin | QA copy only (404 elsewhere): reset QA to a clean state; returns removed/created counts |
 
 ## Health
 
 | Method | Path | Description |
 |--------|------|-------------|
-| GET | `/health`, `/api/health` | `{ "status": "ok", "version": "0.2.0", "commit": "abc1234" }` |
+| GET | `/health`, `/api/health` | `{ "status": "ok", "version": "0.3.0", "commit": "abc1234" }` |
+| GET | `/api/config` | `{ "version", "qa_mode", "email_enabled" }` for the frontend |

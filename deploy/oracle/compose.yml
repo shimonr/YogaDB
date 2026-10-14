@@ -40,6 +40,15 @@ services:
       # server-deploy.sh / server-import-photos.sh set these, otherwise the repo sample is used.
       ASANAS_CSV_PATH: /data/asanas/${ASANAS_CSV_FILE:-yoga_asanas.sample.csv}
       ASANAS_IMAGES_DIR: /data/asanas
+      PUBLIC_URL: https://${DOMAIN:?set DOMAIN}
+      QA_MODE: ${QA_MODE:-false}
+      # Outgoing email for password reset links (QA uses the Mailpit test mailbox below).
+      SMTP_HOST: ${SMTP_HOST:-}
+      SMTP_PORT: ${SMTP_PORT:-587}
+      SMTP_USER: ${SMTP_USER:-}
+      SMTP_PASSWORD: ${SMTP_PASSWORD:-}
+      SMTP_FROM: ${SMTP_FROM:-YogaDB <no-reply@yogadb.local>}
+      SMTP_TLS: ${SMTP_TLS:-true}
     volumes:
       - ${ASANAS_DATA_DIR:-../../data/asanas}:/data/asanas:ro
       - uploads:/data/uploads   # user photo uploads (Cloudinary is used instead if configured)
@@ -89,6 +98,38 @@ services:
       - uploads:/uploads:ro
     networks:
       - internal
+
+  backup-offsite:
+    # Copies /backups to Cloudinary (private) when BACKUP_CLOUDINARY_* are set; idles otherwise.
+    build: ../../backend
+    restart: unless-stopped
+    command: ["python", "-m", "app.services.offsite_backup"]
+    environment:
+      BACKUP_LABEL: ${BACKUP_LABEL:-yogadb}
+      BACKUP_CLOUDINARY_CLOUD_NAME: ${BACKUP_CLOUDINARY_CLOUD_NAME:-}
+      BACKUP_CLOUDINARY_API_KEY: ${BACKUP_CLOUDINARY_API_KEY:-}
+      BACKUP_CLOUDINARY_API_SECRET: ${BACKUP_CLOUDINARY_API_SECRET:-}
+    volumes:
+      - ${BACKUP_DIR:-/opt/backups/yogadb}:/backups:ro
+    networks:
+      - internal
+
+  mailpit:
+    # QA only (profile "mail"): catches every email the app sends; web inbox at MAIL_DOMAIN.
+    image: axllent/mailpit:v1.31
+    profiles: ["mail"]
+    restart: unless-stopped
+    environment:
+      MP_UI_AUTH: qa:${MAILPIT_PASSWORD:-change-me}
+      MP_SMTP_AUTH_ACCEPT_ANY: "1"
+      MP_SMTP_AUTH_ALLOW_INSECURE: "1"
+      MP_MAX_MESSAGES: "500"
+    labels:
+      caddy: ${MAIL_DOMAIN:-mail.localhost}
+      caddy.reverse_proxy: "{{upstreams 8025}}"
+    networks:
+      - internal
+      - web
 
 networks:
   internal: {}

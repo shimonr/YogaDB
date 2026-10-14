@@ -55,7 +55,7 @@ export function PhotoUpload({ asanaId, onUploaded }: PhotoUploadProps) {
   };
 
   return (
-    <div className="bg-white rounded-xl border border-sand-100 p-4">
+    <div className="card p-4">
       <h3 className="text-sm font-medium text-slate-600 mb-2">Upload Photo</h3>
       <input
         ref={fileInput}
@@ -66,12 +66,12 @@ export function PhotoUpload({ asanaId, onUploaded }: PhotoUploadProps) {
       />
       {preview && (
         <div className="mt-3 flex items-start gap-3">
-          <img src={preview} alt="Preview" className="w-24 h-24 object-cover rounded" />
+          <img src={preview} alt="Preview" className="w-24 h-24 object-cover rounded-xl" />
           <div className="flex flex-col gap-2">
             <button
               onClick={handleUpload}
               disabled={uploading}
-              className="bg-sage-500 text-white px-3 py-1 rounded text-sm disabled:opacity-50"
+              className="btn-primary px-3 py-1 text-sm disabled:opacity-50"
             >
               {uploading ? "Uploading..." : "Upload"}
             </button>

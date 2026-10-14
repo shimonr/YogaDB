@@ -4,7 +4,7 @@
 $Root = Split-Path -Parent $PSScriptRoot
 if (-not $Target) { $Target = "prod" }
 
-$config = @{ PROJECT = "yogadb"; IMPORT_ON_DEPLOY = "0"; SEED_SAMPLE_CONTENT = "0" }
+$config = @{ PROJECT = "yogadb"; IMPORT_ON_DEPLOY = "0"; SEED_SAMPLE_CONTENT = "0"; QA_MODE = "0"; MAILPIT = "0" }
 $files = @("$Root\deploy\oracle\config.env")
 if ($Target -eq "qa") { $files += "$Root\deploy\oracle\qa.env" }
 elseif ($Target -ne "prod") { throw "Unknown target '$Target' (use prod or qa)." }
@@ -22,8 +22,8 @@ if ($env:DEPLOY_SSH_KEY) { $sshArgs += @("-i", $env:DEPLOY_SSH_KEY, "-o", "Ident
 
 function Get-RemoteCommand([string]$ServerScript) {
     # Single-quoted so PowerShell leaves the remote shell's $ variables alone.
-    $remote = 'set -e; app=__APP__; if [ ! -d $app/.git ]; then sudo mkdir -p $app; sudo chown $(id -u):$(id -g) $app; git clone -q --branch __BRANCH__ __REPO__ $app; fi; git -C $app fetch -q origin __BRANCH__; git -C $app reset -q --hard origin/__BRANCH__; REPO_URL=__REPO__ APP_DIR=$app BRANCH=__BRANCH__ DOMAIN=__DOMAIN__ PROJECT=__PROJECT__ IMPORT_ON_DEPLOY=__IMPORT__ SEED_SAMPLE_CONTENT=__SEED__ bash $app/deploy/oracle/__SCRIPT__'
-    return $remote.Replace("__APP__", $app).Replace("__BRANCH__", $branch).Replace("__REPO__", $repo).Replace("__DOMAIN__", $domain).Replace("__PROJECT__", $config["PROJECT"]).Replace("__IMPORT__", $config["IMPORT_ON_DEPLOY"]).Replace("__SEED__", $config["SEED_SAMPLE_CONTENT"]).Replace("__SCRIPT__", $ServerScript)
+    $remote = 'set -e; app=__APP__; if [ ! -d $app/.git ]; then sudo mkdir -p $app; sudo chown $(id -u):$(id -g) $app; git clone -q --branch __BRANCH__ __REPO__ $app; fi; git -C $app fetch -q origin __BRANCH__; git -C $app reset -q --hard origin/__BRANCH__; REPO_URL=__REPO__ APP_DIR=$app BRANCH=__BRANCH__ DOMAIN=__DOMAIN__ PROJECT=__PROJECT__ IMPORT_ON_DEPLOY=__IMPORT__ SEED_SAMPLE_CONTENT=__SEED__ QA_MODE=__QA__ MAILPIT=__MAIL__ bash $app/deploy/oracle/__SCRIPT__'
+    return $remote.Replace("__APP__", $app).Replace("__BRANCH__", $branch).Replace("__REPO__", $repo).Replace("__DOMAIN__", $domain).Replace("__PROJECT__", $config["PROJECT"]).Replace("__IMPORT__", $config["IMPORT_ON_DEPLOY"]).Replace("__SEED__", $config["SEED_SAMPLE_CONTENT"]).Replace("__QA__", $config["QA_MODE"]).Replace("__MAIL__", $config["MAILPIT"]).Replace("__SCRIPT__", $ServerScript)
 }
 
 function Test-PublicSite([string]$ExpectedVersion) {

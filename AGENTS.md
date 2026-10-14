@@ -26,7 +26,11 @@ FastAPI + SQLAlchemy backend (`backend/`), React + Vite + TypeScript frontend (`
 ## Orb notes
 
 - This project's Amp secrets include Cloudinary keys (`CLOUDINARY_*`). They reach every orb process, so a backend started in an orb would upload to the real Cloudinary account: unset them when running the API locally (`env -u CLOUDINARY_CLOUD_NAME -u CLOUDINARY_API_KEY -u CLOUDINARY_API_SECRET ...`). The tests already ignore them.
-- Browser smoke tests: `cd frontend && npx playwright install chromium && E2E_BASE_URL=<site> npm run e2e`.
+- Browser smoke tests: `cd frontend && npx playwright install chromium && E2E_BASE_URL=<site> npm run e2e`. On QA, `E2E_QA_FLOWS=1` adds data-changing tests and `E2E_QA_RESET=1` the QA reset; ask before using them while the owner's testers are using QA.
+
+## Design
+
+Warm "sunrise" look: `font-display` (Cormorant Garamond) for page titles, Nunito for text; palette `sage`, `lotus`, `lavender`, `saffron`, `plum` in `frontend/tailwind.config.js`. Use the shared classes in `frontend/src/index.css` (`card`, `card-hover`, `btn-primary`, `btn-secondary`, `btn-danger`, `input`, `input-base`, `chip`) instead of one-off styles.
 
 ## Session history
 

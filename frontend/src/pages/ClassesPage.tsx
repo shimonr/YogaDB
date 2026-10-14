@@ -56,25 +56,25 @@ export function ClassesPage() {
   return (
     <div className="space-y-4">
       {user?.role === "admin" && (
-        <div className="bg-white rounded-xl border border-sand-100 p-4 space-y-3">
+        <div className="card p-4 space-y-3">
           <h2 className="font-semibold text-slate-700">Create Class</h2>
           <input
             placeholder="Class name"
             value={name}
             onChange={(e) => setName(e.target.value)}
-            className="border rounded px-3 py-1 w-full"
+            className="input-base px-3 py-1 w-full"
           />
           <textarea
             placeholder="Description (optional)"
             value={description}
             onChange={(e) => setDescription(e.target.value)}
-            className="border rounded px-3 py-1 w-full text-sm"
+            className="input-base px-3 py-1 w-full text-sm"
             rows={2}
           />
           <select
             value={difficulty}
             onChange={(e) => setDifficulty(Number(e.target.value))}
-            className="border rounded px-3 py-1"
+            className="input-base px-3 py-1"
           >
             {[1, 2, 3, 4, 5].map((d) => (
               <option key={d} value={d}>Difficulty {d}</option>
@@ -82,7 +82,7 @@ export function ClassesPage() {
           </select>
           <div>
             <p className="text-sm text-slate-500 mb-1">Select flows ({selectedFlows.length} selected):</p>
-            <div className="max-h-48 overflow-y-auto border rounded p-2 space-y-1">
+            <div className="max-h-48 overflow-y-auto input-base p-2 space-y-1">
               {flows.map((f) => (
                 <label key={f.id} className="flex items-center gap-2 text-sm cursor-pointer hover:bg-sage-50 px-1 py-0.5 rounded">
                   <input
@@ -102,7 +102,7 @@ export function ClassesPage() {
           <button
             onClick={handleCreate}
             disabled={!name.trim() || selectedFlows.length === 0}
-            className="bg-sage-500 text-white px-4 py-1 rounded disabled:opacity-50"
+            className="btn-primary px-4 py-1 disabled:opacity-50"
           >
             Create Class
           </button>
@@ -111,7 +111,7 @@ export function ClassesPage() {
 
       <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
         {classes.map((cls) => (
-          <div key={cls.id} className="bg-white rounded-xl border border-sand-100 p-4">
+          <div key={cls.id} className="card p-4">
             <Link to={`/classes/${cls.id}`} className="font-semibold text-sage-700 hover:underline">
               {cls.name}
             </Link>

@@ -17,6 +17,8 @@ DATA_DIR="${DATA_DIR:-/opt/apps/yogadb-data}"
 BACKUP_DIR="${BACKUP_DIR:-/opt/backups/$PROJECT}"
 IMPORT_ON_DEPLOY="${IMPORT_ON_DEPLOY:-0}"        # re-import the asana CSV + photos after starting
 SEED_SAMPLE_CONTENT="${SEED_SAMPLE_CONTENT:-0}"  # add sample transitions/flows/classes
+QA_MODE="${QA_MODE:-0}"                          # enable the admin "reset QA" action
+MAILPIT="${MAILPIT:-0}"                          # run the Mailpit test mailbox and send email to it
 
 step() { echo "==> $*"; }
 
@@ -78,6 +80,18 @@ set_env DOMAIN "$DOMAIN"
 set_env APP_VERSION "$version"
 set_env APP_COMMIT "$commit"
 set_env BACKUP_DIR "$BACKUP_DIR"
+set_env BACKUP_LABEL "$PROJECT"
+set_env QA_MODE "$([[ $QA_MODE == 1 ]] && echo true || echo false)"
+compose_profiles=()
+if [[ "$MAILPIT" == 1 ]]; then
+  grep -q '^MAILPIT_PASSWORD=' "$env_file" || set_env MAILPIT_PASSWORD "$(openssl rand -hex 12)"
+  set_env MAIL_DOMAIN "mail.$DOMAIN"
+  set_env SMTP_HOST mailpit
+  set_env SMTP_PORT 1025
+  set_env SMTP_TLS false
+  set_env SMTP_FROM "YogaDB QA <no-reply@$DOMAIN>"
+  compose_profiles=(--profile mail)
+fi
 # Asana CSV + images uploaded with upload-photos.cmd replace the repo's sample data.
 if [[ -f "$DATA_DIR/asanas/yoga_asanas.csv" ]]; then
   set_env ASANAS_DATA_DIR "$DATA_DIR/asanas"
@@ -90,7 +104,7 @@ dc compose -f "$APP_DIR/deploy/oracle/proxy/compose.yml" up -d --quiet-pull
 
 step "App: build and start ($PROJECT)"
 sudo mkdir -p "$BACKUP_DIR"
-compose_app=(compose -p "$PROJECT" -f "$APP_DIR/deploy/oracle/compose.yml" --env-file "$env_file")
+compose_app=(compose -p "$PROJECT" -f "$APP_DIR/deploy/oracle/compose.yml" --env-file "$env_file" "${compose_profiles[@]}")
 dc "${compose_app[@]}" up -d --build --remove-orphans --quiet-pull
 dc image prune -f >/dev/null
 

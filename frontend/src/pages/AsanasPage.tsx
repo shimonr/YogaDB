@@ -4,6 +4,7 @@ import { api } from "../lib/api";
 import type { Asana } from "../lib/types";
 import { RankStars } from "../components/RankStars";
 import { photoFileUrl } from "../lib/photoUrl";
+import { chipColor, prettyLabel } from "../lib/categoryColors";
 
 export function AsanasPage() {
   const [top, setTop] = useState<Asana[]>([]);
@@ -29,24 +30,32 @@ export function AsanasPage() {
     <div>
       <div className="flex items-center justify-between mb-4">
         <h1 className="text-2xl font-semibold text-sage-700">Asanas</h1>
-        <button className="text-sm bg-sage-500 text-white px-3 py-1 rounded" onClick={() => setShowAll((v) => !v)}>
+        <button className="text-sm btn-primary px-3 py-1" onClick={() => setShowAll((v) => !v)}>
           {showAll ? "Show Top 10" : "View All"}
         </button>
       </div>
       <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
         {list.map((a) => (
-          <Link key={a.id} to={`/asanas/${a.id}`} className="bg-white p-4 rounded-xl border border-sand-100 hover:shadow-sm">
+          <Link key={a.id} to={`/asanas/${a.id}`} className="card card-hover p-3 group">
             {a.cover_photo_id && (
-              <img
-                src={photoFileUrl(a.cover_photo_id, 600)}
-                alt={a.english_name}
-                className="w-full aspect-square object-cover rounded mb-2"
-              />
+              <div className="overflow-hidden rounded-xl mb-3">
+                <img
+                  src={photoFileUrl(a.cover_photo_id, 600)}
+                  alt={a.english_name}
+                  loading="lazy"
+                  className="w-full aspect-square object-cover transition duration-500 group-hover:scale-105"
+                />
+              </div>
             )}
-            <h3 className="font-medium">{a.english_name}</h3>
-            <p className="text-sm text-slate-500">{a.sanskrit_name}</p>
-            <p className="text-xs mt-1">{a.type} - {a.category}</p>
-            <RankStars rank={a.rank} />
+            <div className="px-1 pb-1">
+              <h3 className="font-bold text-plum-800">{a.english_name}</h3>
+              <p className="text-sm text-slate-500 italic">{a.sanskrit_name}</p>
+              <div className="mt-2 flex flex-wrap gap-1.5">
+                <span className={`chip ${chipColor(a.type)}`}>{prettyLabel(a.type)}</span>
+                <span className={`chip ${chipColor(a.category)}`}>{prettyLabel(a.category)}</span>
+              </div>
+              <RankStars rank={a.rank} />
+            </div>
           </Link>
         ))}
       </div>

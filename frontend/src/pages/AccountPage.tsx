@@ -58,20 +58,20 @@ export function AccountPage() {
         Signed in as <span className="font-medium">{user.username}</span> ({user.role})
       </p>
 
-      <form onSubmit={saveEmail} className="bg-white border border-sand-100 rounded-xl p-5 space-y-3">
+      <form onSubmit={saveEmail} className="card p-5 space-y-3">
         <h2 className="font-medium">Email</h2>
-        <input type="email" required value={email} onChange={(e) => setEmail(e.target.value)} aria-label="Email" className="w-full border rounded px-3 py-2" />
+        <input type="email" required value={email} onChange={(e) => setEmail(e.target.value)} aria-label="Email" className="w-full input-base px-3 py-2" />
         {status(emailStatus)}
-        <button className="bg-sage-500 text-white rounded px-4 py-2">Save email</button>
+        <button className="btn-primary px-4 py-2">Save email</button>
       </form>
 
-      <form onSubmit={savePassword} className="bg-white border border-sand-100 rounded-xl p-5 space-y-3">
+      <form onSubmit={savePassword} className="card p-5 space-y-3">
         <h2 className="font-medium">Change password</h2>
-        <input type="password" required value={currentPassword} onChange={(e) => setCurrentPassword(e.target.value)} placeholder="Current password" className="w-full border rounded px-3 py-2" />
-        <input type="password" required minLength={8} value={newPassword} onChange={(e) => setNewPassword(e.target.value)} placeholder="New password (at least 8 characters)" className="w-full border rounded px-3 py-2" />
-        <input type="password" required value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} placeholder="Repeat new password" className="w-full border rounded px-3 py-2" />
+        <input type="password" required value={currentPassword} onChange={(e) => setCurrentPassword(e.target.value)} placeholder="Current password" className="w-full input-base px-3 py-2" />
+        <input type="password" required minLength={8} value={newPassword} onChange={(e) => setNewPassword(e.target.value)} placeholder="New password (at least 8 characters)" className="w-full input-base px-3 py-2" />
+        <input type="password" required value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} placeholder="Repeat new password" className="w-full input-base px-3 py-2" />
         {status(passwordStatus)}
-        <button className="bg-sage-500 text-white rounded px-4 py-2">Change password</button>
+        <button className="btn-primary px-4 py-2">Change password</button>
       </form>
     </div>
   );

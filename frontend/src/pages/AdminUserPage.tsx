@@ -33,7 +33,7 @@ export function AdminUserPage() {
 
   return (
     <div className="space-y-4">
-      <div className="bg-white rounded-xl border border-sand-100 p-5">
+      <div className="card p-5">
         <Link to="/admin" className="text-sm text-sage-600 hover:underline">&larr; Back to Admin</Link>
         <h1 className="text-2xl font-semibold mt-2">{user.username}</h1>
         <div className="mt-2 space-y-1 text-sm">
@@ -43,7 +43,7 @@ export function AdminUserPage() {
         </div>
       </div>
 
-      <div className="bg-white rounded-xl border border-sand-100 p-5">
+      <div className="card p-5">
         <h2 className="text-lg font-medium mb-3">Activity Log ({logs.length} recent entries)</h2>
         {logs.length === 0 ? (
           <p className="text-slate-400 text-sm">No activity recorded.</p>

@@ -47,7 +47,7 @@ export function TransitionDetailPage() {
 
   return (
     <div className="space-y-6">
-      <div className="bg-white rounded-xl border border-sand-100 p-5">
+      <div className="card p-5">
         <h1 className="text-2xl font-semibold">{transition.name}</h1>
         <p className="text-sm text-slate-500 mt-1">Difficulty {transition.difficulty_level} / 5</p>
         <RankStars rank={transition.rank} />

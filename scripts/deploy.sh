@@ -7,7 +7,7 @@ set -euo pipefail
 
 root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 target="${1:-prod}"
-PROJECT=yogadb IMPORT_ON_DEPLOY=0 SEED_SAMPLE_CONTENT=0
+PROJECT=yogadb IMPORT_ON_DEPLOY=0 SEED_SAMPLE_CONTENT=0 QA_MODE=0 MAILPIT=0
 # shellcheck source=../deploy/oracle/config.env
 source "$root/deploy/oracle/config.env"
 case "$target" in
@@ -40,7 +40,7 @@ fi
 version="$(git -C "$root" show "origin/$BRANCH:VERSION" 2>/dev/null || echo dev)"
 echo "Deploying $target: version $version, $(git -C "$root" log -1 --format='%h %s' "origin/$BRANCH") to $SSH_TARGET"
 
-server_env="REPO_URL=$REPO_URL APP_DIR=\$app BRANCH=$BRANCH DOMAIN=$DOMAIN PROJECT=$PROJECT IMPORT_ON_DEPLOY=$IMPORT_ON_DEPLOY SEED_SAMPLE_CONTENT=$SEED_SAMPLE_CONTENT"
+server_env="REPO_URL=$REPO_URL APP_DIR=\$app BRANCH=$BRANCH DOMAIN=$DOMAIN PROJECT=$PROJECT IMPORT_ON_DEPLOY=$IMPORT_ON_DEPLOY SEED_SAMPLE_CONTENT=$SEED_SAMPLE_CONTENT QA_MODE=$QA_MODE MAILPIT=$MAILPIT"
 remote="set -e; app=$APP_DIR; if [ ! -d \$app/.git ]; then sudo mkdir -p \$app; sudo chown \$(id -u):\$(id -g) \$app; git clone -q --branch $BRANCH $REPO_URL \$app; fi; git -C \$app fetch -q origin $BRANCH; git -C \$app reset -q --hard origin/$BRANCH; $server_env bash \$app/deploy/oracle/server-deploy.sh"
 ssh "${ssh_opts[@]}" "$SSH_TARGET" "$remote"
 

@@ -1,15 +1,19 @@
+from datetime import UTC, datetime, timedelta
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel
-from sqlalchemy import inspect, text
+from sqlalchemy import func, inspect, text
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 
+from app.core.config import get_settings
 from app.core.database import get_db
 from app.core.deps import get_current_admin
-from app.models import ActivityLog, RankingLog, User
-from app.schemas import ActivityLogOut, RankingLogOut
+from app.models import ActivityLog, PasswordResetToken, RankingLog, User
+from app.schemas import ActivityLogOut, PasswordResetRequestOut, RankingLogOut
+from app.services.password_reset import create_reset_link
+from app.services.qa_reset import reset_qa
 
 router = APIRouter()
 
@@ -121,3 +125,43 @@ def list_activity_logs(
         query = query.filter(ActivityLog.entity_type == entity_type)
     offset = (page - 1) * per_page
     return query.order_by(ActivityLog.created_at.desc()).offset(offset).limit(per_page).all()
+
+
+@router.get("/password-resets", response_model=list[PasswordResetRequestOut])
+def pending_password_resets(
+    db: Annotated[Session, Depends(get_db)],
+    _admin: Annotated[User, Depends(get_current_admin)],
+) -> list[dict]:
+    """Users with an unused reset request from the last day (for sites without email)."""
+    since = datetime.now(UTC) - timedelta(days=1)
+    rows = (
+        db.query(User.id, User.username, User.email, func.max(PasswordResetToken.created_at))
+        .join(PasswordResetToken, PasswordResetToken.user_id == User.id)
+        .filter(PasswordResetToken.used_at.is_(None), PasswordResetToken.created_at >= since)
+        .group_by(User.id, User.username, User.email)
+        .all()
+    )
+    return [{"user_id": r[0], "username": r[1], "email": r[2], "requested_at": r[3]} for r in rows]
+
+
+@router.post("/users/{user_id}/reset-link")
+def admin_reset_link(
+    user_id: int,
+    db: Annotated[Session, Depends(get_db)],
+    _admin: Annotated[User, Depends(get_current_admin)],
+) -> dict:
+    """A one-time reset link (valid 24 hours) for the admin to send to the user."""
+    user = db.get(User, user_id)
+    if user is None:
+        raise HTTPException(status_code=404, detail="User not found")
+    return {"link": create_reset_link(db, user, timedelta(hours=24)), "expires_hours": 24}
+
+
+@router.post("/qa/reset")
+def qa_reset(
+    db: Annotated[Session, Depends(get_db)],
+    admin: Annotated[User, Depends(get_current_admin)],
+) -> dict:
+    if not get_settings().qa_mode:
+        raise HTTPException(status_code=404, detail="Not available on this site")
+    return {"ok": True, **reset_qa(db, keep_user_id=admin.id)}

@@ -34,6 +34,7 @@ app.dependency_overrides[get_db] = override_get_db
 def setup_db():
     auth_module._login_failures.clear()
     auth_module._register_attempts.clear()
+    auth_module._reset_requests.clear()
     Base.metadata.drop_all(bind=engine)
     Base.metadata.create_all(bind=engine)
     db = TestingSessionLocal()

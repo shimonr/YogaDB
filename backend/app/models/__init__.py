@@ -2,6 +2,7 @@ from app.models.activity_log import ActivityLog
 from app.models.asana import Asana
 from app.models.clazz import Class
 from app.models.flow import Flow
+from app.models.password_reset import PasswordResetToken
 from app.models.photo import Photo
 from app.models.ranking import Ranking
 from app.models.ranking_log import RankingLog

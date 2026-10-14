@@ -12,12 +12,12 @@ function PhotoCard({ photo, user, onRanked }: { photo: Photo; user: any; onRanke
   const [photoStatus, setPhotoStatus] = useState("");
 
   return (
-    <div className="bg-white rounded-xl border border-sand-100 p-3">
+    <div className="card p-3">
       <Link to={`/photos/${photo.id}`}>
         <img
           src={photoFileUrl(photo.id, 600)}
           alt=""
-          className="w-full aspect-square object-cover rounded hover:opacity-90 transition"
+          className="w-full aspect-square object-cover rounded-xl hover:opacity-90 transition"
         />
       </Link>
       <RankStars rank={photo.rank} />
@@ -42,10 +42,10 @@ function PhotoCard({ photo, user, onRanked }: { photo: Photo; user: any; onRanke
               const v = Number(e.target.value);
               setPhotoRank(isNaN(v) ? 50 : Math.min(100, Math.max(1, v)));
             }}
-            className="border rounded px-2 py-1 w-20 text-sm"
+            className="input-base px-2 py-1 w-20 text-sm"
           />
           <button
-            className="bg-sage-500 text-white px-2 py-1 rounded text-sm"
+            className="btn-primary px-2 py-1 text-sm"
             onClick={async () => {
               try {
                 await api.post("/ranking/rank", { type: "photo", target_id: photo.id, rank: photoRank });
@@ -111,7 +111,7 @@ export function AsanaDetailPage() {
 
   return (
     <div className="space-y-4">
-      <div className="bg-white rounded-xl border border-sand-100 p-5">
+      <div className="card p-5">
         <h1 className="text-2xl font-semibold">{asana.english_name}</h1>
         <p className="text-slate-500 text-lg">{asana.sanskrit_name}</p>
 
@@ -138,11 +138,11 @@ export function AsanaDetailPage() {
               const v = Number(e.target.value);
               setRank(isNaN(v) ? 50 : Math.min(100, Math.max(1, v)));
             }}
-            className="border rounded px-2 py-1 w-24"
+            className="input-base px-2 py-1 w-24"
           />
           <button
             disabled={!user}
-            className="bg-sage-500 text-white px-3 py-1 rounded disabled:opacity-50"
+            className="btn-primary px-3 py-1 disabled:opacity-50"
             onClick={async () => {
               if (!id) return;
               try {

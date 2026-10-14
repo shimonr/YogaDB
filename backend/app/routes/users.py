@@ -5,7 +5,7 @@ from sqlalchemy.orm import Session
 
 from app.core.database import get_db
 from app.core.deps import get_current_admin
-from app.models import ActivityLog, Photo, Ranking, RankingLog, User
+from app.models import ActivityLog, PasswordResetToken, Photo, Ranking, RankingLog, User
 from app.schemas import UserOut
 from app.services.ranking_service import update_target_average_rank
 
@@ -33,6 +33,7 @@ def delete_user(
     ranked = db.query(Ranking.type, Ranking.target_id).filter(Ranking.user_id == user_id).all()
     db.query(Ranking).filter(Ranking.user_id == user_id).delete(synchronize_session=False)
     db.query(RankingLog).filter(RankingLog.user_id == user_id).delete(synchronize_session=False)
+    db.query(PasswordResetToken).filter(PasswordResetToken.user_id == user_id).delete(synchronize_session=False)
     db.query(ActivityLog).filter(ActivityLog.user_id == user_id).update({ActivityLog.user_id: None}, synchronize_session=False)
     db.query(Photo).filter(Photo.user_id == user_id).update({Photo.user_id: None}, synchronize_session=False)
     db.delete(item)

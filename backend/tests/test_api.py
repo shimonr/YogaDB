@@ -1,6 +1,6 @@
 from pathlib import Path
 
-from app.models import Asana, Photo
+from app.models import Asana, Photo, User
 from app.services.photo_storage import UPLOAD_ROOT
 from tests.conftest import TestingSessionLocal
 
@@ -867,3 +867,115 @@ class TestSampleContent:
         names = {t["name"] for t in client.get("/api/transitions").json()}
         assert names == {"Cat to Cow", "Child's Pose to Down Dog", "Tree to Mountain"}
         assert [f["name"] for f in client.get("/api/flows").json()] == ["Gentle Warm-up"]
+
+
+class TestPasswordReset:
+    def _register(self, client, name="gina"):
+        r = client.post("/api/auth/register", json={"username": name, "email": f"{name}@example.com", "password": "secret1234"})
+        return r.json()["id"]
+
+    def test_emailed_link_resets_password_once(self, client, monkeypatch):
+        from app.routes import auth
+
+        sent = []
+        monkeypatch.setattr(auth, "send_email", lambda to, subject, body: sent.append((to, body)) or True)
+        self._register(client)
+        r = client.post("/api/auth/forgot-password", json={"email": "gina@example.com"})
+        assert r.status_code == 202
+        (to, body), = sent
+        assert to == "gina@example.com"
+        token = body.split("token=")[1].split()[0]
+
+        assert client.post("/api/auth/reset-password", json={"token": token, "new_password": "brandnew99"}).status_code == 204
+        assert client.post("/api/auth/login", data={"username": "gina", "password": "brandnew99"}).status_code == 200
+        assert client.post("/api/auth/login", data={"username": "gina", "password": "secret1234"}).status_code == 400
+        # One-time use.
+        assert client.post("/api/auth/reset-password", json={"token": token, "new_password": "another99"}).status_code == 400
+
+    def test_unknown_email_gets_the_same_answer_and_no_email(self, client, monkeypatch):
+        from app.routes import auth
+
+        sent = []
+        monkeypatch.setattr(auth, "send_email", lambda *a: sent.append(a) or True)
+        known = self._register(client) and client.post("/api/auth/forgot-password", json={"email": "gina@example.com"})
+        unknown = client.post("/api/auth/forgot-password", json={"email": "nobody@example.com"})
+        assert unknown.status_code == known.status_code == 202
+        assert unknown.json() == known.json()
+        assert len(sent) == 1
+
+    def test_expired_token_is_rejected(self, client):
+        from datetime import timedelta
+
+        from app.services.password_reset import create_reset_link
+
+        user_id = self._register(client)
+        db = TestingSessionLocal()
+        link = create_reset_link(db, db.get(User, user_id), timedelta(seconds=-1))
+        db.close()
+        token = link.split("token=")[1]
+        assert client.post("/api/auth/reset-password", json={"token": token, "new_password": "brandnew99"}).status_code == 400
+
+    def test_admin_sees_requests_and_creates_links(self, client, admin_headers, user_headers):
+        user_id = self._register(client)
+        client.post("/api/auth/forgot-password", json={"email": "gina@example.com"})
+        pending = client.get("/api/admin/password-resets", headers=admin_headers).json()
+        assert [p["username"] for p in pending] == ["gina"]
+        assert client.post(f"/api/admin/users/{user_id}/reset-link", headers=user_headers).status_code == 403
+        link = client.post(f"/api/admin/users/{user_id}/reset-link", headers=admin_headers).json()["link"]
+        token = link.split("token=")[1]
+        assert client.post("/api/auth/reset-password", json={"token": token, "new_password": "fromadmin9"}).status_code == 204
+        # Using any link answers the request.
+        assert client.get("/api/admin/password-resets", headers=admin_headers).json() == []
+
+
+class TestQAReset:
+    def test_not_available_outside_qa(self, client, admin_headers):
+        assert client.post("/api/admin/qa/reset", headers=admin_headers).status_code == 404
+        assert client.get("/api/config").json()["qa_mode"] is False
+
+    def test_reset_keeps_admin_and_asanas_and_removes_test_activity(self, client, admin_headers, user_headers, monkeypatch):
+        from app.core.config import get_settings
+
+        monkeypatch.setattr(get_settings(), "qa_mode", True)
+        monkeypatch.setattr(get_settings(), "asanas_csv_path", None)  # no CSV re-import in this test
+        client.post("/api/ranking/rank", json={"type": "asana", "target_id": 1, "rank": 90}, headers=user_headers)
+        client.post("/api/transitions", json={"name": "T", "start_asana_id": 1, "end_asana_id": 2, "difficulty_level": 1},
+                    headers=admin_headers)
+        assert client.get("/api/config").json()["qa_mode"] is True
+        r = client.post("/api/admin/qa/reset", headers=user_headers)
+        assert r.status_code == 403
+        r = client.post("/api/admin/qa/reset", headers=admin_headers)
+        assert r.status_code == 200
+        assert [u["username"] for u in client.get("/api/users", headers=admin_headers).json()] == ["admin_user"]
+        assert client.get("/api/asanas/1").json()["rank"] == 50
+        assert len(client.get("/api/asanas").json()) == 2
+        # Fixture asanas are Mountain and Tree, so the sample content adds "Tree to Mountain" only.
+        assert [t["name"] for t in client.get("/api/transitions").json()] == ["Tree to Mountain"]
+
+
+class TestOffsiteBackup:
+    def test_uploads_new_files_skips_large_and_known_and_prunes_old(self, tmp_path, monkeypatch):
+        from datetime import UTC, datetime, timedelta
+
+        from app.services import offsite_backup
+
+        monkeypatch.setattr(offsite_backup, "BACKUP_DIR", tmp_path)
+        monkeypatch.setattr(offsite_backup, "MAX_BYTES", 100)
+        monkeypatch.setenv("BACKUP_LABEL", "yogadb")
+        (tmp_path / "yogadb-2026-10-13.sql.gz").write_bytes(b"x" * 10)   # already remote
+        (tmp_path / "yogadb-2026-10-14.sql.gz").write_bytes(b"x" * 10)   # new
+        (tmp_path / "uploads-2026-10-14.tar.gz").write_bytes(b"x" * 500)  # too large
+        now = datetime.now(UTC).isoformat().replace("+00:00", "Z")
+        old = (datetime.now(UTC) - timedelta(days=40)).isoformat().replace("+00:00", "Z")
+        remote = [
+            {"public_id": "yogadb-backups/yogadb/yogadb-2026-10-13.sql.gz", "created_at": now},
+            {"public_id": "yogadb-backups/yogadb/yogadb-2026-09-01.sql.gz", "created_at": old},
+        ]
+        uploaded, deleted = [], []
+        monkeypatch.setattr(offsite_backup.cloudinary.api, "resources", lambda **kw: {"resources": remote})
+        monkeypatch.setattr(offsite_backup.cloudinary.uploader, "upload", lambda path, **kw: uploaded.append(kw["public_id"]))
+        monkeypatch.setattr(offsite_backup.cloudinary.api, "delete_resources", lambda ids, **kw: deleted.extend(ids))
+
+        assert offsite_backup.sync_once() == {"uploaded": 1, "skipped_large": 1, "deleted": 1}
+        assert uploaded == ["yogadb-backups/yogadb/yogadb-2026-10-14.sql.gz"]
+        assert deleted == ["yogadb-backups/yogadb/yogadb-2026-09-01.sql.gz"]

@@ -2,10 +2,51 @@
 @tailwind components;
 @tailwind utilities;
 
-body {
-  @apply bg-sand-50 text-slate-800;
+@layer base {
+  body {
+    @apply text-slate-700 antialiased;
+    min-height: 100vh;
+    background:
+      radial-gradient(1100px 600px at 105% -10%, rgba(246, 196, 216, 0.45), transparent 60%),
+      radial-gradient(900px 520px at -10% 25%, rgba(214, 204, 246, 0.45), transparent 60%),
+      radial-gradient(1000px 620px at 50% 115%, rgba(197, 223, 203, 0.6), transparent 60%),
+      #fdf9f4;
+    background-attachment: fixed;
+  }
+  h1 {
+    @apply font-display tracking-wide text-plum-800;
+  }
+  ::selection {
+    background: #f6c4d8;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after { animation: none !important; transition: none !important; }
+  }
 }
 
-a.active {
-  @apply bg-sage-100 text-sage-700;
+@layer components {
+  .card {
+    @apply rounded-2xl border border-white bg-white/80 shadow-soft backdrop-blur-sm;
+  }
+  .card-hover {
+    @apply transition duration-300 hover:-translate-y-0.5 hover:shadow-lg;
+  }
+  .btn-primary {
+    @apply inline-flex items-center justify-center gap-2 rounded-full bg-gradient-to-r from-sage-500 via-teal-500 to-sage-600 px-5 py-2 font-semibold text-white shadow-sm transition hover:shadow-md hover:brightness-105 active:scale-[.98] disabled:pointer-events-none disabled:opacity-50;
+  }
+  .btn-secondary {
+    @apply inline-flex items-center justify-center gap-2 rounded-full border border-sage-200 bg-white/90 px-5 py-2 font-semibold text-sage-700 transition hover:bg-sage-50 disabled:pointer-events-none disabled:opacity-50;
+  }
+  .btn-danger {
+    @apply inline-flex items-center justify-center gap-2 rounded-full bg-gradient-to-r from-lotus-500 to-rose-500 px-5 py-2 font-semibold text-white shadow-sm transition hover:shadow-md disabled:pointer-events-none disabled:opacity-50;
+  }
+  .input-base {
+    @apply rounded-xl border border-sand-200 bg-white/90 transition focus:border-lotus-300 focus:outline-none focus:ring-2 focus:ring-lotus-200;
+  }
+  .input {
+    @apply input-base w-full px-3 py-2;
+  }
+  .chip {
+    @apply inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold;
+  }
 }

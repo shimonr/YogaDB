@@ -53,7 +53,7 @@ scripts/verify-release.sh qa --e2e
 scripts/deploy.sh
 ```
 
-`--e2e` needs Playwright's browser once per machine: `cd frontend && npx playwright install chromium`.
+`--e2e` needs Playwright's browser once per machine: `cd frontend && npx playwright install chromium`. For login tests export `E2E_USERNAME=shimon` and `E2E_PASSWORD` read from the server `.env` (never print it). Add `E2E_QA_FLOWS=1` (and `E2E_MAILPIT_PASSWORD`) for the data-changing QA tests, and `E2E_QA_RESET=1` for the reset test, only when the owner says nobody is testing QA.
 
 ## 6. Verify
 

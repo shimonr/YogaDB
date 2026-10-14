@@ -32,7 +32,7 @@ export function PhotoDetailPage() {
 
   return (
     <div className="space-y-4">
-      <div className="bg-white rounded-xl border border-sand-100 p-5">
+      <div className="card p-5">
         <div className="grid md:grid-cols-2 gap-6">
           <div>
             <img src={photoFileUrl(photo.id, 1200)} alt="" className="w-full aspect-square object-cover rounded-xl" />

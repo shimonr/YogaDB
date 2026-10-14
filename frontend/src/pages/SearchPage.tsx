@@ -74,32 +74,32 @@ export function SearchPage() {
   return (
     <div className="space-y-4">
       <h1 className="text-2xl font-semibold text-sage-700">Search</h1>
-      <div className="bg-white rounded-xl border border-sand-100 p-4 space-y-3">
+      <div className="card p-4 space-y-3">
         <div className="flex gap-3 text-sm">
           <button className={`px-3 py-1 rounded ${mode === "asana" ? "bg-sage-500 text-white" : "bg-sand-100"}`} onClick={() => setMode("asana")}>Asana</button>
           <button className={`px-3 py-1 rounded ${mode === "transition" ? "bg-sage-500 text-white" : "bg-sand-100"}`} onClick={() => setMode("transition")}>Transition</button>
         </div>
-        <input className="border border-sand-200 rounded px-3 py-2 w-full" placeholder="Search by name, benefits, type..." value={q} onChange={(e) => setQ(e.target.value)} />
+        <input className="input-base px-3 py-2 w-full" placeholder="Search by name, benefits, type..." value={q} onChange={(e) => setQ(e.target.value)} />
 
         {mode === "asana" && (
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-2 text-sm">
             <div>
               <label className="text-xs text-slate-400 block mb-1">Category</label>
-              <select className="border border-sand-200 rounded px-2 py-1 w-full" value={filterCategory} onChange={(e) => setFilterCategory(e.target.value)}>
+              <select className="input-base px-2 py-1 w-full" value={filterCategory} onChange={(e) => setFilterCategory(e.target.value)}>
                 <option value="">All</option>
                 {categories.map((c) => <option key={c} value={c}>{c}</option>)}
               </select>
             </div>
             <div>
               <label className="text-xs text-slate-400 block mb-1">Type</label>
-              <select className="border border-sand-200 rounded px-2 py-1 w-full" value={filterType} onChange={(e) => setFilterType(e.target.value)}>
+              <select className="input-base px-2 py-1 w-full" value={filterType} onChange={(e) => setFilterType(e.target.value)}>
                 <option value="">All</option>
                 {types.map((t) => <option key={t} value={t}>{t}</option>)}
               </select>
             </div>
             <div>
               <label className="text-xs text-slate-400 block mb-1">Classic</label>
-              <select className="border border-sand-200 rounded px-2 py-1 w-full" value={filterClassic} onChange={(e) => setFilterClassic(e.target.value as any)}>
+              <select className="input-base px-2 py-1 w-full" value={filterClassic} onChange={(e) => setFilterClassic(e.target.value as any)}>
                 <option value="all">All</option>
                 <option value="yes">Yes</option>
                 <option value="no">No</option>
@@ -107,13 +107,13 @@ export function SearchPage() {
             </div>
             <div>
               <label className="text-xs text-slate-400 block mb-1">Min Rank</label>
-              <select className="border border-sand-200 rounded px-2 py-1 w-full" value={filterRankMin} onChange={(e) => setFilterRankMin(Number(e.target.value))}>
+              <select className="input-base px-2 py-1 w-full" value={filterRankMin} onChange={(e) => setFilterRankMin(Number(e.target.value))}>
                 {starValues.map((v) => <option key={v} value={v}>{v === 0 ? "Any" : `${v}+`}</option>)}
               </select>
             </div>
             <div>
               <label className="text-xs text-slate-400 block mb-1">Max Rank</label>
-              <select className="border border-sand-200 rounded px-2 py-1 w-full" value={filterRankMax} onChange={(e) => setFilterRankMax(Number(e.target.value))}>
+              <select className="input-base px-2 py-1 w-full" value={filterRankMax} onChange={(e) => setFilterRankMax(Number(e.target.value))}>
                 {starValues.map((v) => <option key={v} value={v}>{v === 100 ? "Any" : v}</option>)}
               </select>
             </div>
@@ -149,7 +149,7 @@ export function SearchPage() {
               <Link
                 key={a.id}
                 to={`/asanas/${a.id}`}
-                className="block bg-white border border-sand-100 rounded p-3 hover:shadow-sm transition-colors"
+                className="block card p-3 hover:shadow-sm transition-colors"
               >
                 <span className="font-medium text-sage-700">{a.english_name}</span>
                 <span className="text-slate-500 ml-2">— {a.sanskrit_name}</span>
@@ -158,7 +158,7 @@ export function SearchPage() {
               </Link>
             ))
           : transitionFiltered.map((t) => (
-              <div key={t.id} className="bg-white border border-sand-100 rounded p-3">
+              <div key={t.id} className="card p-3">
                 <span className="font-medium text-sage-700">{t.name}</span>
                 <span className="text-xs text-slate-400 ml-2">Difficulty {t.difficulty_level}</span>
               </div>

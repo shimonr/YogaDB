@@ -39,12 +39,22 @@ SSH key: the scripts use your default SSH key. To use another key file set `DEPL
 
 ### QA copy
 
-`deploy/oracle/qa.env` overrides the production settings: checkout `/opt/apps/yogadb-qa`, Docker Compose project `yogadb-qa` (separate database and upload volumes), backups in `/opt/backups/yogadb-qa`. Every QA deploy re-imports the asana CSV and photos from `/opt/apps/yogadb-data/asanas` and adds the sample transitions, flows and classes (`python -m app.services.sample_content`). Its admin password is in `/opt/apps/yogadb-qa/deploy/oracle/.env`. Run the browser smoke tests against it with `cd frontend && npx playwright install chromium && npm run e2e`.
+`deploy/oracle/qa.env` overrides the production settings: checkout `/opt/apps/yogadb-qa`, Docker Compose project `yogadb-qa` (separate database and upload volumes), backups in `/opt/backups/yogadb-qa`. Every QA deploy re-imports the asana CSV and photos from `/opt/apps/yogadb-data/asanas` and adds the sample transitions, flows and classes (`python -m app.services.sample_content`). Its admin password is in `/opt/apps/yogadb-qa/deploy/oracle/.env`.
+
+QA extras (`QA_MODE=1`, `MAILPIT=1` in `qa.env`):
+- **Reset QA:** Admin → QA Tools → "Reset QA now" deletes every user except the admin, all ratings, logs, uploads, transitions, flows and classes, then re-imports the asanas and adds the sample content again. The endpoint returns 404 on production.
+- **Test mailbox:** QA sends all email (password reset links) to Mailpit, whose inbox is https://mail.qa.yogadb.129-159-8-242.sslip.io (user `qa`, password `MAILPIT_PASSWORD` in the QA `.env`). No real email leaves QA.
+- **Browser tests:** `cd frontend && npx playwright install chromium && npm run e2e` runs the read-only smoke tests. `E2E_QA_FLOWS=1` adds tests that create data (register, rate, upload, password reset via Mailpit; needs `E2E_MAILPIT_PASSWORD`), and `E2E_QA_RESET=1` adds the reset test. Don't use those two while people are testing QA by hand.
 
 ### Monitoring and backups off the VM
 
 - `.github/workflows/uptime.yml` checks production every 30 minutes; GitHub emails the repository owner when a run fails.
-- `download-backups.cmd` copies `/opt/backups/yogadb` (database dumps and user uploads) to `Documents\YogaDB-backups` on the PC. Run it regularly; the VM holds the only other copy.
+- Production's `backup-offsite` container copies each daily backup to Cloudinary as private files (`yogadb-backups/yogadb/`, kept 30 days; files over 10 MB are skipped and logged). It uses `BACKUP_CLOUDINARY_*` in the server `.env`, separate from the photo settings, so the app keeps storing photos on the VM. Without those variables it idles.
+- `download-backups.cmd` copies `/opt/backups/yogadb` (database dumps and user uploads) to `Documents\YogaDB-backups` on the PC.
+
+### Email (password reset)
+
+"Forgot password?" emails a one-hour reset link when SMTP is configured. Production has no email provider yet: requests appear in Admin → Overview → "Password reset requests", where the admin creates a 24-hour link and sends it by hand ("Reset link" also works for any user). To turn on email, add to `/opt/apps/yogadb/deploy/oracle/.env` and redeploy: `SMTP_HOST`, `SMTP_PORT` (587), `SMTP_USER`, `SMTP_PASSWORD`, `SMTP_FROM` (e.g. Brevo, Resend or a Gmail app password).
 
 ### Operate
 

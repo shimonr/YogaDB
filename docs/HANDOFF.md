@@ -1,12 +1,12 @@
-# Session handoff — version 0.2.1 (2026-10-13)
+# Session handoff — version 0.3.0 (2026-10-14)
 
 Snapshot of where YogaDB stands; the `version-wrap` skill rewrites it at the end of each session. History of changes: `CHANGELOG.md` and git tags. Earlier session threads: https://ampcode.com/threads/T-01a126c7-3226-76bb-9da0-c62acc7157e3
 
 ## Where things stand
 
-- **Version 0.2.1** (tag `v0.2.1`), the pre-QA release (0.2.0 plus a release-script fix). CI (lint, tests, migrations check, build) passes on every push.
+- **Version 0.3.0** (tag `v0.3.0`): everything planned before QA (password reset, QA reset and test mailbox, off-site backups) and the new design. QA testing starts on this version. CI (lint, tests, migrations check, build) passes on every push.
 - **Production:** https://yogadb.129-159-8-242.sslip.io on the Oracle VM `ubuntu@129.159.8.242` (Ubuntu 24.04 ARM, 4 cores, 23 GB RAM, 96 GB disk). 106 asanas, 1,059 photos, real data.
-- **QA copy:** https://qa.yogadb.129-159-8-242.sslip.io, own database, same photos, sample transitions/flows/classes. Ready for the QA phase.
+- **QA copy:** https://qa.yogadb.129-159-8-242.sslip.io, own database, same photos, sample transitions/flows/classes, "Reset QA" in Admin → QA Tools, test mailbox https://mail.qa.yogadb.129-159-8-242.sslip.io (user `qa`, password `MAILPIT_PASSWORD` in the QA `.env`).
 - **Free services** (Vercel/Render/Neon/Cloudinary) are a documented backup only; not verified recently.
 
 ## How to work
@@ -26,11 +26,14 @@ Snapshot of where YogaDB stands; the `version-wrap` skill rewrites it at the end
 - Asana originals live on the owner's PC (yoga-image-collector); the VM copy is replaced by `upload-photos.cmd`. Imported images are not in server backups for that reason.
 - Login limit: 5 failed attempts per IP + username in 5 minutes (successful logins don't count); registrations 10 per IP in 5 minutes. In memory, per process.
 - Games only use asanas with a photo and a distinct Sanskrit name.
+- Password reset tokens are stored hashed and are one-time; the forgot-password answer is the same for unknown emails. Without SMTP, admins create reset links by hand.
+- Off-site backups go to the existing Cloudinary account (private "authenticated" raw files) through separate `BACKUP_CLOUDINARY_*` variables, so photo storage stays on the VM.
+- Data-changing browser tests are opt-in (`E2E_QA_FLOWS`, `E2E_QA_RESET`) so they never disturb manual QA.
 
 ## Still open
 
 - **Data:** 12 fitness exercises have no Sanskrit name (rows 77, 79–82, 85, 92–94, 97–99 of the CSV); rows 93 and 99 are both "Standing Quad Stretch". The owner's PC CSV matches the VM again (copied back on 2026-10-13, including the 12 filled Sanskrit names).
-- **Backups:** only on the VM plus whatever `download-backups.cmd` copied; no automatic off-site copy (Oracle Object Storage would need OCI credentials).
-- **Accounts:** no "forgot password" email flow (needs an email provider); the admin email is still `shimon@example.com` until changed on the Account page.
+- **Email on production:** no email provider configured, so production reset links are sent by the admin by hand (add `SMTP_*` to the production `.env` to automate). The admin email is still `shimon@example.com` until changed on the Account page.
+- **Backups:** off-site copies skip files over 10 MB (Cloudinary free plan limit); large upload archives would only be on the VM and the PC (`download-backups.cmd`).
 - **Free-tier backup:** not exercised since the Oracle move; Cloudinary cloud name capitalization may break uploads there.
-- **Tests:** browser smoke tests cover the main read-only flows and login; there are no browser tests for admin editing or uploads.
+- **Tests:** no browser tests yet for admin editing of asanas/transitions/flows/classes.

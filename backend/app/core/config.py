@@ -45,6 +45,17 @@ class Settings(BaseSettings):
     cloudinary_api_secret: str = ""
     admin_password: str = DEFAULT_ADMIN_PASSWORD
     admin_email: str = "shimon@example.com"
+    # Base URL of the site, used in emailed links.
+    public_url: str = "http://localhost:5173"
+    # Outgoing email (password reset links). Without SMTP_HOST, admins create reset links by hand.
+    smtp_host: str = ""
+    smtp_port: int = 587
+    smtp_user: str = ""
+    smtp_password: str = ""
+    smtp_from: str = "YogaDB <no-reply@yogadb.local>"
+    smtp_tls: bool = True
+    # QA copy only: enables the "reset QA to a clean state" admin action.
+    qa_mode: bool = False
 
     model_config = SettingsConfigDict(
         env_file=str(_ENV_FILE) if _ENV_FILE.is_file() else None,

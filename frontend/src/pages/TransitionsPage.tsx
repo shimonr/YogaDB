@@ -96,9 +96,9 @@ export function TransitionsPage() {
       <h1 className="text-2xl font-semibold text-sage-700">Transitions (Top 10)</h1>
 
       {user?.role === "admin" && (
-        <div className="bg-white rounded-xl border border-sand-100 p-4 space-y-2">
+        <div className="card p-4 space-y-2">
           <div className="grid md:grid-cols-4 gap-2">
-            <input className="border border-sand-200 rounded px-3 py-2 md:col-span-2" value={name} onChange={(e) => setName(e.target.value)} placeholder="Transition name (required)..." />
+            <input className="input-base px-3 py-2 md:col-span-2" value={name} onChange={(e) => setName(e.target.value)} placeholder="Transition name (required)..." />
             <select className={`border rounded px-2 ${startAsanaId === endAsanaId ? "border-red-400" : "border-sand-200"}`} value={startAsanaId} onChange={(e) => setStartAsanaId(Number(e.target.value))}>
               {asanas.map((a) => <option key={`s-${a.id}`} value={a.id}>{a.english_name}</option>)}
             </select>
@@ -108,11 +108,11 @@ export function TransitionsPage() {
           </div>
           {startAsanaId === endAsanaId && <p className="text-xs text-red-500">Start and end pose must be different.</p>}
           <div className="flex items-center gap-2">
-            <select className="border border-sand-200 rounded px-2 py-1 text-sm" value={difficulty} onChange={(e) => setDifficulty(Number(e.target.value))}>
+            <select className="input-base px-2 py-1 text-sm" value={difficulty} onChange={(e) => setDifficulty(Number(e.target.value))}>
               {[1, 2, 3, 4, 5].map((d) => <option key={d} value={d}>Difficulty {d}</option>)}
             </select>
             <button onClick={create} disabled={submitting || !name.trim() || startAsanaId === endAsanaId}
-              className="bg-sage-500 text-white px-4 py-1 rounded text-sm disabled:opacity-50">
+              className="btn-primary px-4 py-1 text-sm disabled:opacity-50">
               {submitting ? "Creating..." : "Create"}
             </button>
             {createStatus && <span className="text-xs text-slate-600">{createStatus}</span>}
@@ -126,25 +126,25 @@ export function TransitionsPage() {
           const endName = asanaMap[t.end_asana_id]?.english_name || `#${t.end_asana_id}`;
           const isEditing = editingId === t.id;
           return (
-            <div key={t.id} className="bg-white rounded-xl border border-sand-100 p-4">
+            <div key={t.id} className="card p-4">
               {isEditing ? (
                 <div className="space-y-2">
-                  <input className="border border-sand-200 rounded px-2 py-1 w-full text-sm" value={editName} onChange={(e) => setEditName(e.target.value)} />
+                  <input className="input-base px-2 py-1 w-full text-sm" value={editName} onChange={(e) => setEditName(e.target.value)} />
                   <div className="grid grid-cols-2 gap-2">
-                    <select className="border border-sand-200 rounded px-2 py-1 text-sm" value={editStart} onChange={(e) => setEditStart(Number(e.target.value))}>
+                    <select className="input-base px-2 py-1 text-sm" value={editStart} onChange={(e) => setEditStart(Number(e.target.value))}>
                       {asanas.map((a) => <option key={`es-${a.id}`} value={a.id}>{a.english_name}</option>)}
                     </select>
-                    <select className="border border-sand-200 rounded px-2 py-1 text-sm" value={editEnd} onChange={(e) => setEditEnd(Number(e.target.value))}>
+                    <select className="input-base px-2 py-1 text-sm" value={editEnd} onChange={(e) => setEditEnd(Number(e.target.value))}>
                       {asanas.map((a) => <option key={`ee-${a.id}`} value={a.id}>{a.english_name}</option>)}
                     </select>
                   </div>
                   {editStart === editEnd && <p className="text-xs text-red-500">Positions must differ.</p>}
-                  <select className="border border-sand-200 rounded px-2 py-1 text-sm" value={editDifficulty} onChange={(e) => setEditDifficulty(Number(e.target.value))}>
+                  <select className="input-base px-2 py-1 text-sm" value={editDifficulty} onChange={(e) => setEditDifficulty(Number(e.target.value))}>
                     {[1, 2, 3, 4, 5].map((d) => <option key={d} value={d}>Difficulty {d}</option>)}
                   </select>
                   <div className="flex gap-2">
                     <button onClick={() => update(t.id)} disabled={editStart === editEnd || !editName.trim()}
-                      className="text-xs bg-sage-500 text-white px-3 py-1 rounded disabled:opacity-50">Save</button>
+                      className="text-xs btn-primary px-3 py-1 disabled:opacity-50">Save</button>
                     <button onClick={() => setEditingId(null)} className="text-xs text-slate-500 underline">Cancel</button>
                   </div>
                 </div>

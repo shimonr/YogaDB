@@ -81,7 +81,7 @@ export function GamesPage() {
             <button
               key={g.type}
               onClick={() => navigate(`/games/${g.type}`)}
-              className="bg-white p-5 rounded-xl border border-sand-100 text-left hover:shadow-sm"
+              className="card p-5 text-left hover:shadow-sm"
             >
               <h3 className="font-medium text-sage-700">{g.label}</h3>
               <p className="text-sm text-slate-500 mt-1">{g.desc}</p>
@@ -188,7 +188,7 @@ function MatchGame({ asanas, mode, onResult }: { asanas: GameAsana[]; mode: "mat
               }`}
             >
               {photoId ? (
-                <img src={photoFileUrl(photoId, 600)} alt="" className="w-full aspect-square object-cover rounded" />
+                <img src={photoFileUrl(photoId, 600)} alt="" className="w-full aspect-square object-cover rounded-xl" />
               ) : (
                 <div className="w-full aspect-square bg-slate-100 rounded" />
               )}
@@ -226,7 +226,7 @@ function MatchGame({ asanas, mode, onResult }: { asanas: GameAsana[]; mode: "mat
       {done && (
         <div className="flex items-center gap-3 mt-2">
           <span className="text-green-600 font-medium">All matched!</span>
-          <button onClick={startRound} className="bg-sage-500 text-white px-4 py-2 rounded text-sm">Next Round</button>
+          <button onClick={startRound} className="btn-primary px-4 py-2 text-sm">Next Round</button>
         </div>
       )}
     </div>
@@ -305,7 +305,7 @@ function SanskritFromImageGame({ asanas, onResult }: { asanas: GameAsana[]; onRe
           <span className={correct ? "text-green-600 font-medium" : "text-red-600 font-medium"}>
             {correct ? "Correct!" : `Wrong — it's ${round.asana.sanskrit_name}`}
           </span>
-          <button onClick={startRound} className="bg-sage-500 text-white px-4 py-2 rounded text-sm">Next</button>
+          <button onClick={startRound} className="btn-primary px-4 py-2 text-sm">Next</button>
         </div>
       )}
     </div>
@@ -379,7 +379,7 @@ function SanskritFromEnglishGame({ asanas, onResult }: { asanas: GameAsana[]; on
           <span className={correct ? "text-green-600 font-medium" : "text-red-600 font-medium"}>
             {correct ? "Correct!" : `Wrong — it's ${round.asana.sanskrit_name}`}
           </span>
-          <button onClick={startRound} className="bg-sage-500 text-white px-4 py-2 rounded text-sm">Next</button>
+          <button onClick={startRound} className="btn-primary px-4 py-2 text-sm">Next</button>
         </div>
       )}
     </div>

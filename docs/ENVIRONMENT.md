@@ -13,6 +13,10 @@ Copy from `backend/.env.example`. Relative paths are resolved from `backend/`, s
 | `ADMIN_PASSWORD` | **Yes (prod)** | `adm` | Password for the seeded admin user `shimon`; production refuses to seed with the default |
 | `ADMIN_EMAIL` | No | `shimon@example.com` | Email of the seeded admin user (change it later on the Account page) |
 | `APP_VERSION` / `APP_COMMIT` | No | `VERSION` file / empty | Reported at `/api/health`; deploys set them |
+| `PUBLIC_URL` | No | `http://localhost:5173` | Site address used in emailed links (deploys set `https://<DOMAIN>`) |
+| `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASSWORD`, `SMTP_FROM`, `SMTP_TLS` | No | empty, 587, empty, empty, `YogaDB <no-reply@yogadb.local>`, true | Outgoing email for password reset links; without `SMTP_HOST` admins create reset links in the admin panel |
+| `QA_MODE` | No | `false` | QA copy only: enables Admin → QA Tools → reset |
+| `BACKUP_CLOUDINARY_CLOUD_NAME`, `..._API_KEY`, `..._API_SECRET` | No | empty | Server only: off-site copies of the daily backups (backup-offsite container) |
 | `ACCESS_TOKEN_EXPIRE_MINUTES` | No | `60` (`.env.example`: `1440`) | JWT lifetime |
 | `DATABASE_URL` | No | `sqlite:///./yogadb.db` | SQLAlchemy URL; the SQLite file is relative to the process cwd (`backend/`) |
 | `CORS_ORIGINS` | No | `http://localhost:5173` | Comma-separated allowed origins |

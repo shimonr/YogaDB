@@ -79,10 +79,10 @@ export function FlowsPage() {
       <h1 className="text-2xl font-semibold text-sage-700">Flows (Top 10)</h1>
 
       {user?.role === "admin" && (
-        <div className="bg-white rounded-xl border border-sand-100 p-4 space-y-3">
+        <div className="card p-4 space-y-3">
           <div className="flex gap-2 items-center">
-            <input className="border border-sand-200 rounded px-3 py-2 flex-1" value={flowName} onChange={(e) => setFlowName(e.target.value)} placeholder="Flow name..." />
-            <select className="border border-sand-200 rounded px-2 py-1 text-sm" value={difficulty} onChange={(e) => setDifficulty(Number(e.target.value))}>
+            <input className="input-base px-3 py-2 flex-1" value={flowName} onChange={(e) => setFlowName(e.target.value)} placeholder="Flow name..." />
+            <select className="input-base px-2 py-1 text-sm" value={difficulty} onChange={(e) => setDifficulty(Number(e.target.value))}>
               {[1, 2, 3, 4, 5].map((d) => <option key={d} value={d}>Diff {d}</option>)}
             </select>
           </div>
@@ -106,7 +106,7 @@ export function FlowsPage() {
                 {selectedIds.length === 0 ? "Pick first transition:" :
                   `From ${asanaMap[transMap[selectedIds[selectedIds.length - 1]]?.end_asana_id]?.english_name || "?"}:`}
               </p>
-              <div className="max-h-40 overflow-y-auto border border-sand-200 rounded p-2 space-y-1">
+              <div className="max-h-40 overflow-y-auto input-base p-2 space-y-1">
                 {availableForStep.map((t) => {
                   const s = asanaMap[t.start_asana_id]?.english_name || "?";
                   const e = asanaMap[t.end_asana_id]?.english_name || "?";
@@ -123,7 +123,7 @@ export function FlowsPage() {
           {selectedIds.length >= 20 && <p className="text-xs text-amber-500">Maximum 20 transitions reached.</p>}
           <div className="flex items-center gap-2">
             <button onClick={create} disabled={submitting || !flowName.trim() || selectedIds.length < 2}
-              className="bg-sage-500 text-white px-4 py-1 rounded text-sm disabled:opacity-50">
+              className="btn-primary px-4 py-1 text-sm disabled:opacity-50">
               {submitting ? "Creating..." : "Create Flow"}
             </button>
             {createStatus && <span className="text-xs text-slate-600">{createStatus}</span>}
@@ -133,7 +133,7 @@ export function FlowsPage() {
 
       <div className="grid md:grid-cols-2 gap-3">
         {items.map((f) => (
-          <div key={f.id} className="bg-white rounded-xl border border-sand-100 p-4">
+          <div key={f.id} className="card p-4">
             <Link to={`/flows/${f.id}`} className="font-medium text-sage-700 hover:underline">{f.name}</Link>
             <div className="text-xs text-slate-500 mt-1 flex flex-wrap gap-x-1">
               {f.transition_ids.map((tid, i) => {

@@ -14,11 +14,11 @@ export class ErrorBoundary extends Component<Props, State> {
     if (this.state.hasError) {
       return (
         <div className="min-h-screen flex items-center justify-center bg-sand-50">
-          <div className="bg-white rounded-xl border border-sand-100 p-8 max-w-md text-center space-y-4">
+          <div className="card p-8 max-w-md text-center space-y-4">
             <h1 className="text-xl font-semibold text-red-600">Something went wrong</h1>
             <p className="text-slate-600 text-sm">{this.state.error?.message || "An unexpected error occurred."}</p>
             <button
-              className="bg-sage-500 text-white px-4 py-2 rounded"
+              className="btn-primary px-4 py-2"
               onClick={() => {
                 this.setState({ hasError: false, error: null });
                 window.location.href = "/";

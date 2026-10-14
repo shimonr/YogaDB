@@ -63,7 +63,7 @@ export function FlowDetailPage() {
 
   return (
     <div className="space-y-4">
-      <div className="bg-white rounded-xl border border-sand-100 p-5">
+      <div className="card p-5">
         <h1 className="text-2xl font-semibold">{flow.name}</h1>
         <p className="text-sm text-slate-500 mt-1">{flow.transition_ids.length} transitions · Difficulty {flow.difficulty_level}</p>
         <RankStars rank={flow.rank} />

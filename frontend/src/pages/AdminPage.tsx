@@ -3,8 +3,106 @@ import { Link } from "react-router-dom";
 import { api, fetchAll } from "../lib/api";
 import { ConfirmDialog } from "../components/ConfirmDialog";
 import type { Asana, Class, Flow, Photo, Transition, User } from "../lib/types";
+import { useAppConfig } from "../lib/appConfig";
 
-type Tab = "overview" | "ranking-log" | "activity-log" | "db-browser" | "sql-query";
+type Tab = "overview" | "ranking-log" | "activity-log" | "db-browser" | "sql-query" | "qa-tools";
+
+type ResetRequest = { user_id: number; username: string; email: string; requested_at: string };
+
+function ResetLinkBox({ username, link, onClose }: { username: string; link: string; onClose: () => void }) {
+  const [copied, setCopied] = useState(false);
+  return (
+    <div className="mt-2 p-3 rounded-lg bg-saffron-50 border border-saffron-200 text-sm space-y-2">
+      <p>One-time reset link for <span className="font-medium">{username}</span>, valid for 24 hours. Send it to them:</p>
+      <div className="flex gap-2">
+        <input readOnly value={link} className="input text-xs" onFocus={(e) => e.target.select()} aria-label="Reset link" />
+        <button
+          className="btn-secondary shrink-0"
+          onClick={() => navigator.clipboard?.writeText(link).then(() => setCopied(true))}
+        >
+          {copied ? "Copied" : "Copy"}
+        </button>
+        <button className="text-slate-500 shrink-0" onClick={onClose} aria-label="Close">×</button>
+      </div>
+    </div>
+  );
+}
+
+function PasswordResetRequests({ onCreateLink }: { onCreateLink: (userId: number) => void }) {
+  const [requests, setRequests] = useState<ResetRequest[]>([]);
+  useEffect(() => {
+    api.get("/admin/password-resets").then((r) => setRequests(r.data)).catch(() => {});
+  }, []);
+  if (!requests.length) return null;
+  return (
+    <div className="card p-4 border-l-4 border-l-saffron-400">
+      <h2 className="font-medium">Password reset requests</h2>
+      <p className="text-sm text-slate-500 mb-2">These users asked for a reset link in the last day. Create a link and send it to them.</p>
+      {requests.map((r) => (
+        <div key={r.user_id} className="flex justify-between items-center py-1 text-sm">
+          <span>{r.username} <span className="text-slate-400">{r.email}</span></span>
+          <button className="text-sage-700 underline" onClick={() => onCreateLink(r.user_id)}>Create reset link</button>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function QAToolsTab() {
+  const [open, setOpen] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [result, setResult] = useState<{ removed: Record<string, number>; created: Record<string, number> } | null>(null);
+  const [error, setError] = useState("");
+
+  const reset = async () => {
+    setOpen(false); setBusy(true); setError(""); setResult(null);
+    try {
+      const { data } = await api.post("/admin/qa/reset");
+      setResult({ removed: data.removed, created: data.created });
+    } catch (err: any) {
+      setError(err?.response?.data?.detail || "Reset failed.");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <div className="card p-5 space-y-3 max-w-2xl">
+      <h2 className="text-lg font-medium">Reset QA to a clean state</h2>
+      <p className="text-sm text-slate-600">
+        Deletes every user except you, all ratings, logs, uploaded photos, transitions, flows and classes. Then it
+        re-imports the asanas and photos and adds the sample transitions, flows and classes again. Use it between test rounds.
+      </p>
+      <button disabled={busy} onClick={() => setOpen(true)} className="btn-danger">
+        {busy ? "Resetting..." : "Reset QA now"}
+      </button>
+      {error && <p className="text-sm text-red-600">{error}</p>}
+      {result && (
+        <div className="text-sm bg-sage-50 rounded-lg p-3">
+          <p className="font-medium mb-2">QA is clean again.</p>
+          <div className="grid grid-cols-2 gap-4">
+            {([["Removed", result.removed], ["Added back", result.created]] as const).map(([title, items]) => (
+              <div key={title}>
+                <p className="font-semibold text-plum-700">{title}</p>
+                <ul>
+                  {Object.entries(items).map(([k, v]) => <li key={k}>{k.replace(/_/g, " ")}: {v}</li>)}
+                </ul>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+      <ConfirmDialog
+        open={open}
+        title="Reset QA?"
+        message="All test users and test data will be deleted. This cannot be undone."
+        confirmLabel="Reset"
+        onConfirm={reset}
+        onCancel={() => setOpen(false)}
+      />
+    </div>
+  );
+}
 
 function OverviewTab() {
   const [users, setUsers] = useState<User[]>([]);
@@ -17,6 +115,16 @@ function OverviewTab() {
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [confirmTarget, setConfirmTarget] = useState<{ label: string; fn: () => Promise<void> } | null>(null);
   const [error, setError] = useState("");
+  const [resetLink, setResetLink] = useState<{ userId: number; link: string } | null>(null);
+
+  const createResetLink = async (userId: number) => {
+    try {
+      const { data } = await api.post(`/admin/users/${userId}/reset-link`);
+      setResetLink({ userId, link: data.link });
+    } catch {
+      setError("Could not create a reset link.");
+    }
+  };
 
   useEffect(() => {
     Promise.all([
@@ -53,8 +161,16 @@ function OverviewTab() {
   return (
     <div className="space-y-3">
       {error && <p className="text-red-600 text-sm">{error}</p>}
+      <PasswordResetRequests onCreateLink={createResetLink} />
+      {resetLink && (
+        <ResetLinkBox
+          username={users.find((u) => u.id === resetLink.userId)?.username ?? "the user"}
+          link={resetLink.link}
+          onClose={() => setResetLink(null)}
+        />
+      )}
       <h2 className="text-lg font-medium">Users</h2>
-      <div className="bg-white rounded-xl border border-sand-100 max-h-72 overflow-auto">
+      <div className="card max-h-72 overflow-auto">
         {users.map((u) => (
           <div key={u.id} className="border-b last:border-b-0 p-3 flex justify-between items-center">
             <div className="flex items-center gap-3">
@@ -62,16 +178,19 @@ function OverviewTab() {
               <span className="text-xs text-slate-400">{u.email}</span>
               <span className="text-xs bg-sage-100 text-sage-700 px-2 py-0.5 rounded">{u.role}</span>
             </div>
-            <button className="text-red-600 text-sm"
-              onClick={() => askDelete(u.username, async () => {
-                await api.delete(`/users/${u.id}`); setUsers((p) => p.filter((x) => x.id !== u.id));
-              })}>Delete</button>
+            <div className="flex gap-3">
+              <button className="text-sage-700 text-sm" onClick={() => createResetLink(u.id)}>Reset link</button>
+              <button className="text-red-600 text-sm"
+                onClick={() => askDelete(u.username, async () => {
+                  await api.delete(`/users/${u.id}`); setUsers((p) => p.filter((x) => x.id !== u.id));
+                })}>Delete</button>
+            </div>
           </div>
         ))}
       </div>
 
       <h2 className="text-lg font-medium">Asanas</h2>
-      <div className="bg-white rounded-xl border border-sand-100 max-h-72 overflow-auto">
+      <div className="card max-h-72 overflow-auto">
         {asanas.map((a) => (
           <div key={a.id} className="border-b last:border-b-0 p-3 flex justify-between">
             <Link to={`/asanas/${a.id}`} className="text-sage-700 hover:underline">{a.english_name}</Link>
@@ -84,7 +203,7 @@ function OverviewTab() {
       </div>
 
       <h2 className="text-lg font-medium">Transitions</h2>
-      <div className="bg-white rounded-xl border border-sand-100 max-h-72 overflow-auto">
+      <div className="card max-h-72 overflow-auto">
         {transitions.map((t) => (
           <div key={t.id} className="border-b last:border-b-0 p-3 flex justify-between">
             <Link to={`/transitions/${t.id}`} className="text-sage-700 hover:underline">{t.name}</Link>
@@ -97,7 +216,7 @@ function OverviewTab() {
       </div>
 
       <h2 className="text-lg font-medium">Flows</h2>
-      <div className="bg-white rounded-xl border border-sand-100 max-h-72 overflow-auto">
+      <div className="card max-h-72 overflow-auto">
         {flows.map((f) => (
           <div key={f.id} className="border-b last:border-b-0 p-3 flex justify-between">
             <Link to={`/flows/${f.id}`} className="text-sage-700 hover:underline">{f.name}</Link>
@@ -110,7 +229,7 @@ function OverviewTab() {
       </div>
 
       <h2 className="text-lg font-medium">Classes</h2>
-      <div className="bg-white rounded-xl border border-sand-100 max-h-72 overflow-auto">
+      <div className="card max-h-72 overflow-auto">
         {classes.map((c) => (
           <div key={c.id} className="border-b last:border-b-0 p-3 flex justify-between">
             <Link to={`/classes/${c.id}`} className="text-sage-700 hover:underline">{c.name}</Link>
@@ -123,7 +242,7 @@ function OverviewTab() {
       </div>
 
       <h2 className="text-lg font-medium">Photos</h2>
-      <div className="bg-white rounded-xl border border-sand-100 max-h-72 overflow-auto">
+      <div className="card max-h-72 overflow-auto">
         {photos.map((p) => (
           <div key={p.id} className="border-b last:border-b-0 p-3 flex justify-between">
             <Link to={`/photos/${p.id}`} className="text-sage-700 hover:underline">#{p.id} asana={p.asana_id} ({p.type})</Link>
@@ -222,7 +341,7 @@ function RankingLogTab() {
 
   return (
     <div>
-      <div className="bg-white rounded-xl border border-sand-100 overflow-auto">
+      <div className="card overflow-auto">
         <table className="w-full text-sm">
           <thead className="bg-sage-50 sticky top-0">
             <tr>
@@ -255,9 +374,9 @@ function RankingLogTab() {
         </table>
       </div>
       <div className="flex justify-center gap-2 mt-3">
-        <button onClick={() => setPage((p) => Math.max(1, p - 1))} disabled={page === 1} className="text-sm px-3 py-1 border rounded disabled:opacity-50">Prev</button>
+        <button onClick={() => setPage((p) => Math.max(1, p - 1))} disabled={page === 1} className="btn-secondary text-sm px-3 py-1 disabled:opacity-50">Prev</button>
         <span className="text-sm text-slate-500 py-1">Page {page}</span>
-        <button onClick={() => setPage((p) => p + 1)} disabled={logs.length < 50} className="text-sm px-3 py-1 border rounded disabled:opacity-50">Next</button>
+        <button onClick={() => setPage((p) => p + 1)} disabled={logs.length < 50} className="btn-secondary text-sm px-3 py-1 disabled:opacity-50">Next</button>
       </div>
     </div>
   );
@@ -292,7 +411,7 @@ function ActivityLogTab() {
   return (
     <div>
       <div className="flex gap-2 mb-3">
-        <select value={actionFilter} onChange={(e) => { setActionFilter(e.target.value); setPage(1); }} className="border rounded px-2 py-1 text-sm">
+        <select value={actionFilter} onChange={(e) => { setActionFilter(e.target.value); setPage(1); }} className="input-base px-2 py-1 text-sm">
           <option value="">All actions</option>
           <option value="rank">Rank</option>
           <option value="upload">Upload</option>
@@ -301,7 +420,7 @@ function ActivityLogTab() {
           <option value="login">Login</option>
           <option value="register">Register</option>
         </select>
-        <select value={entityFilter} onChange={(e) => { setEntityFilter(e.target.value); setPage(1); }} className="border rounded px-2 py-1 text-sm">
+        <select value={entityFilter} onChange={(e) => { setEntityFilter(e.target.value); setPage(1); }} className="input-base px-2 py-1 text-sm">
           <option value="">All entities</option>
           <option value="asana">Asana</option>
           <option value="photo">Photo</option>
@@ -311,7 +430,7 @@ function ActivityLogTab() {
           <option value="user">User</option>
         </select>
       </div>
-      <div className="bg-white rounded-xl border border-sand-100 overflow-auto">
+      <div className="card overflow-auto">
         <table className="w-full text-sm">
           <thead className="bg-sage-50 sticky top-0">
             <tr>
@@ -358,9 +477,9 @@ function ActivityLogTab() {
       </div>
       {expandedUser && <div className="mt-3"><UserDetailSection userId={expandedUser} /></div>}
       <div className="flex justify-center gap-2 mt-3">
-        <button onClick={() => setPage((p) => Math.max(1, p - 1))} disabled={page === 1} className="text-sm px-3 py-1 border rounded disabled:opacity-50">Prev</button>
+        <button onClick={() => setPage((p) => Math.max(1, p - 1))} disabled={page === 1} className="btn-secondary text-sm px-3 py-1 disabled:opacity-50">Prev</button>
         <span className="text-sm text-slate-500 py-1">Page {page}</span>
-        <button onClick={() => setPage((p) => p + 1)} disabled={logs.length < 50} className="text-sm px-3 py-1 border rounded disabled:opacity-50">Next</button>
+        <button onClick={() => setPage((p) => p + 1)} disabled={logs.length < 50} className="btn-secondary text-sm px-3 py-1 disabled:opacity-50">Next</button>
       </div>
     </div>
   );
@@ -399,7 +518,7 @@ function DBBrowserTab() {
   return (
     <div>
       {error && <p className="text-red-600 text-sm mb-2">{error}</p>}
-      <select value={selected} onChange={(e) => { setSelected(e.target.value); setPage(1); }} className="border rounded px-3 py-1 mb-3">
+      <select value={selected} onChange={(e) => { setSelected(e.target.value); setPage(1); }} className="input-base px-3 py-1 mb-3">
         <option value="">Select a table...</option>
         {tables.map((t) => <option key={t} value={t}>{t}</option>)}
       </select>
@@ -407,7 +526,7 @@ function DBBrowserTab() {
         <>
           <p className="text-sm text-slate-500 mb-2">{total} total rows</p>
           {tableLoading ? <p className="text-slate-500">Loading...</p> : (
-            <div className="bg-white rounded-xl border border-sand-100 overflow-auto max-h-96">
+            <div className="card overflow-auto max-h-96">
               <table className="w-full text-sm">
                 <thead className="bg-sage-50 sticky top-0">
                   <tr>{columns.map((c) => <th key={c} className="text-left p-2 font-medium">{c}</th>)}</tr>
@@ -423,9 +542,9 @@ function DBBrowserTab() {
             </div>
           )}
           <div className="flex justify-center gap-2 mt-3">
-            <button onClick={() => setPage((p) => Math.max(1, p - 1))} disabled={page === 1} className="text-sm px-3 py-1 border rounded disabled:opacity-50">Prev</button>
+            <button onClick={() => setPage((p) => Math.max(1, p - 1))} disabled={page === 1} className="btn-secondary text-sm px-3 py-1 disabled:opacity-50">Prev</button>
             <span className="text-sm text-slate-500 py-1">Page {page} of {Math.ceil(total / 50)}</span>
-            <button onClick={() => setPage((p) => p + 1)} disabled={page * 50 >= total} className="text-sm px-3 py-1 border rounded disabled:opacity-50">Next</button>
+            <button onClick={() => setPage((p) => p + 1)} disabled={page * 50 >= total} className="btn-secondary text-sm px-3 py-1 disabled:opacity-50">Next</button>
           </div>
         </>
       )}
@@ -460,13 +579,13 @@ function SQLQueryTab() {
       <textarea
         value={sql}
         onChange={(e) => setSql(e.target.value)}
-        className="w-full border rounded p-3 font-mono text-sm h-32"
+        className="w-full input-base p-3 font-mono text-sm h-32"
         placeholder="Enter a SELECT query..."
       />
       <button
         onClick={handleRun}
         disabled={running || !/^\s*(select|with)\b/i.test(sql)}
-        className="mt-2 bg-sage-500 text-white px-4 py-1 rounded disabled:opacity-50"
+        className="mt-2 btn-primary px-4 py-1 disabled:opacity-50"
       >
         {running ? "Running..." : "Execute"}
       </button>
@@ -474,7 +593,7 @@ function SQLQueryTab() {
       {rows.length > 0 && (
         <>
           <p className="text-sm text-slate-500 mt-3">{count} rows returned</p>
-          <div className="bg-white rounded-xl border border-sand-100 overflow-auto max-h-96 mt-2">
+          <div className="card overflow-auto max-h-96 mt-2">
             <table className="w-full text-sm">
               <thead className="bg-sage-50 sticky top-0">
                 <tr>{columns.map((c) => <th key={c} className="text-left p-2 font-medium">{c}</th>)}</tr>
@@ -496,6 +615,7 @@ function SQLQueryTab() {
 
 export function AdminPage() {
   const [tab, setTab] = useState<Tab>("overview");
+  const config = useAppConfig();
 
   const tabs: { id: Tab; label: string }[] = [
     { id: "overview", label: "Overview" },
@@ -503,6 +623,7 @@ export function AdminPage() {
     { id: "activity-log", label: "Activity Log" },
     { id: "db-browser", label: "DB Browser" },
     { id: "sql-query", label: "SQL Query" },
+    ...(config?.qa_mode ? [{ id: "qa-tools" as Tab, label: "QA Tools" }] : []),
   ];
 
   return (
@@ -530,6 +651,7 @@ export function AdminPage() {
       {tab === "activity-log" && <ActivityLogTab />}
       {tab === "db-browser" && <DBBrowserTab />}
       {tab === "sql-query" && <SQLQueryTab />}
+      {tab === "qa-tools" && <QAToolsTab />}
     </div>
   );
 }

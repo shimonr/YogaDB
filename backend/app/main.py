@@ -105,6 +105,15 @@ app.include_router(classes.router, prefix="/api/classes", tags=["classes"])
 app.include_router(admin.router, prefix="/api/admin", tags=["admin"])
 
 
+@app.get("/api/config")
+def public_config() -> dict:
+    """Feature flags the frontend needs."""
+    from app.services.email import email_enabled
+
+    current = get_settings()
+    return {"version": current.app_version, "qa_mode": current.qa_mode, "email_enabled": email_enabled()}
+
+
 @app.get("/health")
 @app.get("/api/health")
 def healthcheck() -> dict[str, str]:

@@ -49,7 +49,7 @@ export function ClassDetailPage() {
 
   return (
     <div className="space-y-4">
-      <div className="bg-white rounded-xl border border-sand-100 p-5">
+      <div className="card p-5">
         <h1 className="text-2xl font-semibold">{cls.name}</h1>
         {cls.description && <p className="text-slate-500 mt-1">{cls.description}</p>}
         <div className="mt-2 text-sm text-slate-400">
@@ -67,10 +67,10 @@ export function ClassDetailPage() {
                 const v = Number(e.target.value);
                 setRank(isNaN(v) ? 50 : Math.min(100, Math.max(1, v)));
               }}
-              className="border rounded px-2 py-1 w-24"
+              className="input-base px-2 py-1 w-24"
             />
             <button
-              className="bg-sage-500 text-white px-3 py-1 rounded"
+              className="btn-primary px-3 py-1"
               onClick={async () => {
                 try {
                   await api.post("/ranking/rank", { type: "class", target_id: Number(id), rank });
@@ -93,7 +93,7 @@ export function ClassDetailPage() {
           const flow = flowMap[flowId];
           if (!flow) return null;
           return (
-            <div key={flowId} className="bg-white rounded-xl border border-sand-100 p-4">
+            <div key={flowId} className="card p-4">
               <div className="flex items-center gap-2">
                 <span className="text-slate-400 text-sm font-mono">{idx + 1}.</span>
                 <Link to={`/flows/${flow.id}`} className="font-medium text-sage-700 hover:underline">
