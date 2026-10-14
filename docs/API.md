@@ -103,5 +103,5 @@ List endpoints return at most `limit` (≤ 200) items; page with `skip`.
 
 | Method | Path | Description |
 |--------|------|-------------|
-| GET | `/health`, `/api/health` | `{ "status": "ok", "version": "0.3.0", "commit": "abc1234" }` |
+| GET | `/health`, `/api/health` | `{ "status": "ok", "version": "X.Y.Z", "commit": "abc1234" }` |
 | GET | `/api/config` | `{ "version", "qa_mode", "email_enabled" }` for the frontend |

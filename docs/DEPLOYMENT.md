@@ -23,7 +23,7 @@ The server always runs what is pushed to `origin/master`. Commit and push, then:
 
 - **Windows:** double-click `deploy.cmd` (production) or `deploy-qa.cmd` (QA copy) in the repo root; it opens the site when done
 - **macOS / Linux / Amp orb:** `scripts/deploy.sh` (production) or `scripts/deploy.sh qa`
-- **Amp agents:** the `deploying-to-oracle` skill; at the end of a session the `version-wrap` skill bumps the version, deploys QA and production and verifies the release (`scripts/verify-release.sh`)
+- **Amp agents:** the `deploying-to-oracle` skill; at the end of a session the `version-wrap` skill tries a release candidate on QA, bumps the version, tags, publishes a GitHub release (`scripts/github-release.sh`), deploys QA and production and verifies everything (`scripts/verify-release.sh [qa|prod] [--e2e]`, which also checks backups and the uptime monitor)
 
 Each deploy stamps the version from `VERSION` and the commit into the app; `https://<site>/api/health` shows them, and the deploy scripts fail if the site does not report the expected version.
 

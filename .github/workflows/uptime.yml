@@ -4,7 +4,8 @@ name: Uptime
 # owner (Settings > Notifications > Actions controls this).
 on:
   schedule:
-    - cron: "*/30 * * * *"
+    # Off the hour: GitHub delays or drops scheduled runs at busy times such as :00 and :30.
+    - cron: "17,47 * * * *"
   workflow_dispatch:
 
 jobs:

@@ -1,71 +1,104 @@
 ---
 name: version-wrap
-description: "Closes a YogaDB working session as a release: updates docs and the handoff, adds missing tests, bumps the version, commits, tags and pushes, deploys to the Oracle VM (QA and production) and verifies the release. Use at the end of every session, or when asked to wrap up, close the session, cut a release, or run version-wrap."
+description: "Closes a YogaDB working session as a release: updates docs and the handoff, adds missing tests, tries the release candidate on QA, bumps the version, commits, tags, pushes, publishes a GitHub release, deploys to the Oracle VM (QA and production) and verifies everything. Use at the end of every session, or when asked to wrap up, close the session, cut a release, or run version-wrap."
 ---
 
 # Version wrap
 
-Invoking this skill is the owner's approval to commit, tag, push to `origin/master` and deploy to
-the QA and production stacks on the Oracle VM. It does not approve anything else (deleting data,
-changing server secrets, rewriting history). Stop and report if a step fails; never skip a failing
-check to finish.
+Invoking this skill is the owner's approval to commit, tag, push to `origin/master`, publish the
+GitHub release and deploy to the QA and production stacks on the Oracle VM. It does not approve
+anything else (deleting data, changing server secrets, rewriting history, resetting QA). Stop and
+report if a step fails; never skip a failing check to finish.
+
+## 0. Preflight (once per machine/orb)
+
+- SSH: `source scripts/lib/oracle.sh && oracle_load prod && oracle_ssh true`. If it fails, see the `deploying-to-oracle` skill (key in `~/.ssh/oracle_deploy` or the `ORACLE_SSH_PRIVATE_KEY` secret).
+- GitHub CLI: `gh auth status` (needed for the GitHub release and the CI/uptime checks).
+- Browser: `cd frontend && npx playwright install chromium`.
+- Python venv and node_modules: `.agents/setup` (already done in project orbs).
 
 ## 1. Take stock
 
-- `git fetch --tags origin && git status && git log --oneline $(git describe --tags --abbrev=0 2>/dev/null || git rev-list --max-parents=0 HEAD)..HEAD`
-- Read `docs/HANDOFF.md` and `CHANGELOG.md`, and this session's conversation, to list what changed, what was decided, and what is still open.
-- If someone else's uncommitted changes are in the tree, ask before including them.
+```bash
+git fetch --tags origin && git status --short
+git log --oneline "$(git describe --tags --abbrev=0)"..HEAD
+```
 
-## 2. Tests for this session's changes
+- Read `docs/HANDOFF.md`, `CHANGELOG.md` and this session's conversation: what changed, what was decided, what is still open, what the owner reported from QA.
+- Review `git status --short` line by line before anything is committed. Unknown files: ask. Someone else's uncommitted work: ask before including it.
+- **Nothing changed since the last tag?** Don't bump. Run step 7 (`verify-release.sh` for qa and prod), refresh `docs/HANDOFF.md` only if its "Still open" list is out of date (that change then becomes a patch release), and report.
 
-For each behavior added or fixed since the last tag, check that a test would fail without it
-(`backend/tests/`, browser smoke tests in `frontend/e2e/`). Add the missing ones; extend existing
-test classes before creating new files. Then run everything:
+## 2. Tests
+
+For each behavior added or fixed since the last tag, make sure a test would fail without it (`backend/tests/`, `frontend/e2e/`). Extend existing test classes before adding files. Then:
 
 ```bash
 cd backend && .venv/bin/ruff check . && .venv/bin/python -m pytest tests -q
 DATABASE_URL=sqlite:////tmp/wrap.db .venv/bin/alembic upgrade head && DATABASE_URL=sqlite:////tmp/wrap.db .venv/bin/alembic check; rm -f /tmp/wrap.db
-cd ../frontend && npm run lint && npm run build
+cd ../frontend && npm run lint && npm run build && rm -rf dist tsconfig.tsbuildinfo
 ```
 
-## 3. Version and docs
+## 3. Release candidate on QA (before bumping)
 
-1. Pick the bump: `patch` for fixes only, `minor` for new features or behavior changes, `major` only when the owner asks. Run `scripts/bump-version.sh <patch|minor|major>`; it prints the new version.
-2. `CHANGELOG.md`: add `## <version> — <YYYY-MM-DD>` at the top with short user-facing bullets (Added / Changed / Fixed / Data).
-3. `docs/HANDOFF.md`: rewrite "Where things stand" for this version (state the version number), update decisions, and replace "Still open" with the current list. Keep it a snapshot, not a log.
-4. Update any other doc the changes affect: `README.md`, `AGENTS.md`, `docs/DEPLOYMENT.md`, `docs/ENVIRONMENT.md`, `docs/API.md`, `docs/DEVELOPMENT.md`.
-
-## 4. Commit, tag, push
+Problems found after tagging force an extra patch release, so try the work on QA first:
 
 ```bash
-git add -A && git commit -m "Release <version>" -m "<two or three lines: what this release contains>"
+git add <reviewed files> && git commit -m "<what changed>"   # skip if already committed
+git push origin master
+scripts/deploy.sh qa
+scripts/verify-release.sh qa --site-only --e2e
+```
+
+Fix what fails, push, and repeat this step.
+
+## 4. Version, docs, release
+
+1. Bump: `patch` = fixes, docs or tooling only; `minor` = new features or behavior changes; `major` only when the owner asks. `scripts/bump-version.sh <patch|minor|major>` prints the new version.
+2. `CHANGELOG.md`: `## <version> — <YYYY-MM-DD>` (owner's date, Europe/Budapest) at the top; short user-facing bullets under Added / Changed / Fixed / Data / Internal.
+3. `docs/HANDOFF.md`: rewrite "Where things stand" for the new version (state the number), update "Decisions" and "Still open". It is a snapshot, not a log.
+4. Every other doc the changes touch: `README.md`, `AGENTS.md`, `docs/DEPLOYMENT.md`, `docs/ENVIRONMENT.md`, `docs/API.md`, `docs/DEVELOPMENT.md`. Avoid writing the current version number into them (use `X.Y.Z`), or they go stale.
+5. Commit, tag, push, publish:
+
+```bash
+git add -A && git status --short          # only the reviewed files plus VERSION, package*.json, docs
+git commit -m "Release <version>" -m "<two or three lines: what this release contains>"
 git tag -a v<version> -m "YogaDB <version>"
 git push origin master && git push origin v<version>
+scripts/github-release.sh                  # GitHub release with the changelog section as notes
 ```
 
 ## 5. Deploy
 
-Load the `deploying-to-oracle` skill for the SSH key, then deploy QA first, check it, then production:
-
 ```bash
 scripts/deploy.sh qa
-scripts/verify-release.sh qa --e2e
 scripts/deploy.sh
 ```
 
-`--e2e` needs Playwright's browser once per machine: `cd frontend && npx playwright install chromium`. For login tests export `E2E_USERNAME=shimon` and `E2E_PASSWORD` read from the server `.env` (never print it). Add `E2E_QA_FLOWS=1` (and `E2E_MAILPIT_PASSWORD`) for the data-changing QA tests, and `E2E_QA_RESET=1` for the reset test, only when the owner says nobody is testing QA.
+Each deploy fails unless the site reports the pushed version and commit at `/api/health`.
 
 ## 6. Verify
 
 ```bash
+scripts/verify-release.sh qa --e2e
 scripts/verify-release.sh prod --e2e
 ```
 
-It checks version files and changelog, clean and pushed tree, the tag on origin, CI for the pushed
-commit (re-run after CI finishes if it is still running), the deployed version and commit, and the
-browser smoke tests. Fix any failure, then repeat from the step that owns it.
+Checks: version files, changelog and handoff; clean, pushed tree; tag and GitHub release; CI for the commit (waits up to 15 minutes); deployed version and commit; prod: backups on the VM (< 26 h) and off-site (< 50 h), uptime monitor ran (< 3 h); qa: test mailbox up; browser tests (credentials come from the server `.env`, never printed). Fix any failure and repeat from the step that owns it.
+
+Data-changing QA tests (`E2E_QA_FLOWS=1`, `E2E_QA_RESET=1`) create test users and can wipe QA. Use them only when the owner confirms in this session that nobody is testing QA.
 
 ## 7. Report
 
-Tell the owner: the version, a short summary of what changed, links to the tag and live site,
-what was verified, and the open items from `docs/HANDOFF.md`.
+Version, what changed (from the changelog), links to the GitHub release and both sites, what was verified (paste the verify summaries), anything skipped and why, and the "Still open" list from `docs/HANDOFF.md`.
+
+## 8. Improve this skill
+
+Before finishing, add anything this run taught you (a failure, a manual workaround, a check that was missing) to "Lessons" below or fix the step itself, and include it in the release commit.
+
+## Lessons
+
+- 2026-10-14: verification found bugs only after tagging twice (0.2.1, 0.3.1). Step 3 now tries a release candidate on QA before bump and tag.
+- 2026-10-14: right after a push the CI run does not exist yet; `verify-release.sh` waits for it instead of reporting "unknown".
+- 2026-10-14: the uptime workflow was "active" but GitHub never ran its `*/30` schedule. Its cron now avoids :00/:30 and `verify-release.sh prod` fails when the last run is older than 3 hours. If it keeps failing, trigger it with `gh workflow run uptime.yml` and check GitHub's status page.
+- 2026-10-14: the orb's Amp secrets include `CLOUDINARY_*`; tests clear them in `conftest.py`, and a locally started API must unset them (see `AGENTS.md`).
+- 2026-10-14: PowerShell variables are case-insensitive (`$Target` = `$target`); keep that in mind when editing `scripts/*.ps1`.

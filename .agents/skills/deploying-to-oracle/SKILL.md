@@ -10,10 +10,7 @@ The VM runs what is pushed to `origin/master`. Settings: `deploy/oracle/config.e
 ## Deploy
 
 1. Make sure the change is committed and pushed to `origin/master`. Pushing needs the user's approval unless they already asked for it; `scripts/deploy.sh` refuses to run with unpushed commits.
-2. Make an SSH key available, in this order:
-   - `~/.ssh/oracle_deploy` exists → `export DEPLOY_SSH_KEY=~/.ssh/oracle_deploy`
-   - the `ORACLE_SSH_PRIVATE_KEY` environment variable is set (Amp secret) → nothing to do
-   - otherwise stop and ask the user to add an `ORACLE_SSH_PRIVATE_KEY` secret containing a private key whose public key is in the server user's `~/.ssh/authorized_keys`
+2. SSH key: the scripts (`scripts/lib/oracle.sh`) use `DEPLOY_SSH_KEY`, else the `ORACLE_SSH_PRIVATE_KEY` secret, else `~/.ssh/oracle_deploy`, else your default key. Check with `source scripts/lib/oracle.sh && oracle_load prod && oracle_ssh true`. If it fails, stop and ask the owner to add an `ORACLE_SSH_PRIVATE_KEY` secret holding a private key whose public key is in the server user's `~/.ssh/authorized_keys`.
 3. Run `scripts/deploy.sh` (production) or `scripts/deploy.sh qa` (QA copy) from the repo root. A first deploy can take several minutes while images build. Deploy QA first when the change is risky.
 4. The script fails unless the site reports the pushed version at `/api/health`. Report the version, commit and URL from its last line, `Deployed <target> <version>: https://...`.
 5. For a full check (version files, tag, CI, live version, browser smoke tests) run `scripts/verify-release.sh <prod|qa> --e2e`.

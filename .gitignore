@@ -42,3 +42,6 @@ Thumbs.db
 
 # Resized photo cache
 data/cache/
+
+# Amp artifacts and scratch files
+.amp/in/
