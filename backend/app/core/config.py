@@ -12,6 +12,12 @@ _ENV_FILE = _BACKEND_DIR / ".env"
 DEFAULT_ADMIN_PASSWORD = "adm"
 
 
+def _repo_version() -> str:
+    """VERSION at the repo root; containers get APP_VERSION from the deploy instead."""
+    version_file = _BACKEND_DIR.parent / "VERSION"
+    return version_file.read_text().strip() if version_file.is_file() else "dev"
+
+
 def _resolve(value: str | None) -> Path | None:
     """Resolve a configured path; relative paths are relative to backend/ (where .env lives)."""
     if not value:
@@ -24,6 +30,8 @@ def _resolve(value: str | None) -> Path | None:
 
 class Settings(BaseSettings):
     app_name: str = "Yoga DB API"
+    app_version: str = _repo_version()
+    app_commit: str = ""
     env: str = "development"
     debug: bool = False
     secret_key: str = ""
@@ -36,6 +44,7 @@ class Settings(BaseSettings):
     cloudinary_api_key: str = ""
     cloudinary_api_secret: str = ""
     admin_password: str = DEFAULT_ADMIN_PASSWORD
+    admin_email: str = "shimon@example.com"
 
     model_config = SettingsConfigDict(
         env_file=str(_ENV_FILE) if _ENV_FILE.is_file() else None,

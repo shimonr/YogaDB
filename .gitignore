@@ -39,3 +39,6 @@ Thumbs.db
 
 # Amp orb portals
 .amp/portals/*
+
+# Resized photo cache
+data/cache/

@@ -74,7 +74,7 @@ export function FlowDetailPage() {
           <div key={i}>
             {step.startPhotoId ? (
               <Link to={`/photos/${step.startPhotoId}`}>
-                <img src={photoFileUrl(step.startPhotoId)} alt="" className="w-48 h-48 object-cover rounded-xl mx-auto" />
+                <img src={photoFileUrl(step.startPhotoId, 400)} alt="" className="w-48 h-48 object-cover rounded-xl mx-auto" />
               </Link>
             ) : step.startAsana ? (
               <Link to={`/asanas/${step.startAsana.id}`}>
@@ -101,7 +101,7 @@ export function FlowDetailPage() {
           const last = steps[steps.length - 1];
           return last.endPhotoId ? (
             <Link to={`/photos/${last.endPhotoId}`}>
-              <img src={photoFileUrl(last.endPhotoId)} alt="" className="w-48 h-48 object-cover rounded-xl mx-auto" />
+              <img src={photoFileUrl(last.endPhotoId, 400)} alt="" className="w-48 h-48 object-cover rounded-xl mx-auto" />
             </Link>
           ) : last.endAsana ? (
             <Link to={`/asanas/${last.endAsana.id}`}>

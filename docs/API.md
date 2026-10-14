@@ -9,7 +9,10 @@ Interactive docs: http://localhost:8000/docs
 | Method | Path | Auth | Description |
 |--------|------|------|-------------|
 | POST | `/auth/register` | — | Register (`username`, `email`, `password` JSON; password 8–72 bytes) |
-| POST | `/auth/login` | — | Login (form: `username`, `password`) → JWT |
+| POST | `/auth/login` | — | Login (form: `username`, `password`) → JWT. 5 failed attempts per IP + username in 5 minutes → 429 |
+| GET | `/auth/me` | User | Current user |
+| PUT | `/auth/me` | User | Change email (`email`) |
+| POST | `/auth/me/password` | User | Change password (`current_password`, `new_password`) → 204 |
 
 ## Asanas
 
@@ -29,7 +32,7 @@ List endpoints return at most `limit` (≤ 200) items; page with `skip`.
 | Method | Path | Auth | Description |
 |--------|------|------|-------------|
 | GET | `/photos/by-asana/{asana_id}` | — | List photos for asana |
-| GET | `/photos/{id}/file` | — | Serve image file from disk |
+| GET | `/photos/{id}/file` | — | Serve the image; `?w=600` returns a WebP copy at most 600 px wide (GIFs and small images unchanged) |
 | POST | `/photos/upload` | User | Multipart: `asana_id`, `rank` (1–100), `file` (jpg/png/webp, ≤ 10 MB) |
 | POST | `/photos/create` | Admin | JSON: `type`, `asana_id`, `local_path` (http(s) URL or a file under `data/` / `ASANAS_IMAGES_DIR`), `original_url`, `rank` |
 | GET | `/photos` | Admin | List all; query: `asana_id`, `skip`, `limit` |
@@ -95,4 +98,4 @@ List endpoints return at most `limit` (≤ 200) items; page with `skip`.
 
 | Method | Path | Description |
 |--------|------|-------------|
-| GET | `/health` | `{ "status": "ok" }` (no `/api` prefix) |
+| GET | `/health`, `/api/health` | `{ "status": "ok", "version": "0.2.0", "commit": "abc1234" }` |

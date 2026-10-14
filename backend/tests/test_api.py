@@ -97,6 +97,39 @@ class TestAuth:
         assert r.status_code == 400
 
 
+    def _register(self, client, name):
+        client.post("/api/auth/register", json={"username": name, "email": f"{name}@example.com", "password": "secret1234"})
+
+    def test_failed_logins_lock_only_that_username(self, client):
+        self._register(client, "alice")
+        self._register(client, "carol")
+        for _ in range(5):
+            assert client.post("/api/auth/login", data={"username": "alice", "password": "wrong-pass"}).status_code == 400
+        assert client.post("/api/auth/login", data={"username": "alice", "password": "secret1234"}).status_code == 429
+        # Another person on the same network can still log in.
+        assert client.post("/api/auth/login", data={"username": "carol", "password": "secret1234"}).status_code == 200
+
+    def test_successful_logins_do_not_count(self, client):
+        self._register(client, "dave")
+        for _ in range(8):
+            assert client.post("/api/auth/login", data={"username": "dave", "password": "secret1234"}).status_code == 200
+
+    def test_change_password_and_email(self, client):
+        self._register(client, "erin")
+        token = client.post("/api/auth/login", data={"username": "erin", "password": "secret1234"}).json()["access_token"]
+        headers = {"Authorization": f"Bearer {token}"}
+        assert client.get("/api/auth/me", headers=headers).json()["username"] == "erin"
+        r = client.post("/api/auth/me/password", json={"current_password": "nope-nope", "new_password": "newsecret99"}, headers=headers)
+        assert r.status_code == 400
+        r = client.post("/api/auth/me/password", json={"current_password": "secret1234", "new_password": "newsecret99"}, headers=headers)
+        assert r.status_code == 204
+        assert client.post("/api/auth/login", data={"username": "erin", "password": "newsecret99"}).status_code == 200
+        r = client.put("/api/auth/me", json={"email": "erin@new.example.com"}, headers=headers)
+        assert r.status_code == 200 and r.json()["email"] == "erin@new.example.com"
+        self._register(client, "frank")
+        assert client.put("/api/auth/me", json={"email": "frank@example.com"}, headers=headers).status_code == 400
+
+
 class TestAsanas:
     def test_list_asanas(self, client):
         r = client.get("/api/asanas")
@@ -646,6 +679,34 @@ class TestPhotos:
         assert client.delete(f"/api/photos/{photo_id}", headers=admin_headers).status_code == 200
         assert source.is_file()
 
+    def test_resized_photo(self, client, admin_headers, images_dir, monkeypatch, tmp_path):
+        import io
+
+        from PIL import Image
+
+        from app.services import photo_storage
+
+        monkeypatch.setattr(photo_storage, "THUMB_ROOT", tmp_path / "thumbs")
+        (images_dir / "Big").mkdir()
+        Image.new("RGB", (800, 400), "red").save(images_dir / "Big" / "big.jpg")
+        Image.new("RGB", (60, 30), "blue").save(images_dir / "Big" / "small.jpg")
+        ids = {}
+        for name in ("big", "small"):
+            r = client.post(
+                "/api/photos/create",
+                json={"type": "download", "asana_id": 1, "local_path": f"Big/{name}.jpg"},
+                headers=admin_headers,
+            )
+            ids[name] = r.json()["id"]
+
+        r = client.get(f"/api/photos/{ids['big']}/file", params={"w": 200})
+        assert r.headers["content-type"] == "image/webp"
+        assert Image.open(io.BytesIO(r.content)).size == (200, 100)
+        # Already smaller than requested: the original is served unchanged.
+        r = client.get(f"/api/photos/{ids['small']}/file", params={"w": 200})
+        assert r.headers["content-type"] == "image/jpeg"
+        assert Image.open(io.BytesIO(r.content)).size == (60, 30)
+
     def test_create_photo_rejects_path_outside_photo_folders(self, client, admin_headers):
         r = client.post(
             "/api/photos/create",
@@ -732,6 +793,10 @@ class TestHealth:
         assert r.status_code == 200
         assert r.json()["status"] == "ok"
 
+    def test_api_health_reports_version(self, client):
+        version = (Path(__file__).resolve().parents[2] / "VERSION").read_text().strip()
+        assert client.get("/api/health").json()["version"] == version
+
 
 class TestCORS:
     def test_cors_preflight(self, client):
@@ -767,4 +832,38 @@ class TestAsanaImport:
         assert db.get(Asana, 3).english_name == "Brand New Pose"
         paths = sorted(p.local_path for p in db.query(Photo).filter(Photo.asana_id == 1))
         assert paths == ["Mountain_Pose/a.jpg", "uploads/asanas/1/u.jpg"]
+
+        # A re-import keeps unchanged photos (same id, so rankings and links survive) and the
+        # asana's ranking average.
+        kept_id = db.query(Photo).filter(Photo.local_path == "Mountain_Pose/a.jpg").one().id
+        db.get(Asana, 1).rank = 87
+        db.commit()
+        upsert_asanas(db, [
+            {**row, "id": 1, "english_name": "Mountain Pose v2",
+             "photos": [{"local_path": "Mountain_Pose/a.jpg"}, {"local_path": "Mountain_Pose/b.jpg"}]},
+        ])
+        db.commit()
+        photos = {p.local_path: p.id for p in db.query(Photo).filter(Photo.asana_id == 1)}
+        assert photos["Mountain_Pose/a.jpg"] == kept_id
+        assert set(photos) == {"Mountain_Pose/a.jpg", "Mountain_Pose/b.jpg", "uploads/asanas/1/u.jpg"}
+        assert db.get(Asana, 1).rank == 87
         db.close()
+
+
+class TestSampleContent:
+    def test_seeds_only_what_the_asanas_allow_and_is_idempotent(self, client):
+        from app.services.sample_content import seed_sample_content
+
+        db = TestingSessionLocal()
+        for i, name in enumerate(["Cat Pose", "Cow Pose", "Child’s Pose", "Downward-Facing Dog"], start=10):
+            db.add(Asana(id=i, english_name=name, sanskrit_name=name, difficulty_level=1, benefits="",
+                         is_classic=True, type="t", category="c", rank=50))
+        db.commit()
+        # Fixture asanas are Mountain Pose and Tree Pose; the curly apostrophe must still match.
+        assert seed_sample_content(db) == {"transitions": 3, "flows": 1, "classes": 1}
+        db.commit()
+        assert seed_sample_content(db) == {"transitions": 0, "flows": 0, "classes": 0}
+        db.close()
+        names = {t["name"] for t in client.get("/api/transitions").json()}
+        assert names == {"Cat to Cow", "Child's Pose to Down Dog", "Tree to Mountain"}
+        assert [f["name"] for f in client.get("/api/flows").json()] == ["Gentle Warm-up"]

@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useParams, Link } from "react-router-dom";
 import { api } from "../lib/api";
 import type { Asana, Photo } from "../lib/types";
@@ -15,7 +15,7 @@ function PhotoCard({ photo, user, onRanked }: { photo: Photo; user: any; onRanke
     <div className="bg-white rounded-xl border border-sand-100 p-3">
       <Link to={`/photos/${photo.id}`}>
         <img
-          src={photoFileUrl(photo.id)}
+          src={photoFileUrl(photo.id, 600)}
           alt=""
           className="w-full aspect-square object-cover rounded hover:opacity-90 transition"
         />
@@ -76,7 +76,7 @@ export function AsanaDetailPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
-  const refresh = () => {
+  const refresh = useCallback(() => {
     if (!id) return;
     setLoading(true);
     setError("");
@@ -87,11 +87,11 @@ export function AsanaDetailPage() {
       })
       .catch(() => setError("Failed to load asana details."))
       .finally(() => setLoading(false));
-  };
+  }, [id]);
 
   useEffect(() => {
     refresh();
-  }, [id]);
+  }, [refresh]);
 
   if (loading) return <p className="text-slate-500">Loading...</p>;
   if (error) return <p className="text-red-600">{error}</p>;

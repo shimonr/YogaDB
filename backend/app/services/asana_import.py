@@ -170,9 +170,12 @@ def load_payload(csv_path: Path, images_dir: Path | None) -> list[dict]:
 
 
 def upsert_asanas(db: Session, payload: list[dict]) -> None:
-    """Create or update asanas by id and replace their imported photos; user uploads are kept."""
+    """Create or update asanas by id and sync their imported photos; user uploads are kept."""
     for item in payload:
-        asana = db.get(Asana, item["id"]) or Asana(id=item["id"])
+        asana = db.get(Asana, item["id"])
+        if asana is None:
+            # rank is the average of user rankings after creation; a re-import must not reset it.
+            asana = Asana(id=item["id"], rank=item.get("rank", 50))
         asana.english_name = item["english_name"]
         asana.sanskrit_name = item["sanskrit_name"]
         asana.alt_name_1 = item.get("alternative_name_1")
@@ -182,12 +185,20 @@ def upsert_asanas(db: Session, payload: list[dict]) -> None:
         asana.is_classic = item["is_classic"]
         asana.type = item["type"]
         asana.category = item["category"]
-        asana.rank = item.get("rank", 50)
         db.add(asana)
         db.flush()
 
-        db.query(Photo).filter(Photo.asana_id == asana.id, Photo.type == "download").delete()
+        # Keep existing imported photos (and so their ids, rankings and links) when the file is still
+        # there; remove the ones whose files are gone and add the new ones.
+        existing = {
+            p.local_path: p
+            for p in db.query(Photo).filter(Photo.asana_id == asana.id, Photo.type == "download")
+        }
         for photo in item.get("photos", []):
+            current = existing.pop(photo["local_path"], None)
+            if current is not None:
+                current.original_url = photo.get("original_url")
+                continue
             db.add(
                 Photo(
                     type=photo.get("type", "download"),
@@ -198,6 +209,8 @@ def upsert_asanas(db: Session, payload: list[dict]) -> None:
                     rank=photo.get("rank", 50),
                 )
             )
+        for gone in existing.values():
+            db.delete(gone)
 
 
 def main() -> None:

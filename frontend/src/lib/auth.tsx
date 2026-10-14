@@ -8,6 +8,7 @@ type AuthContextType = {
   login: (username: string, password: string) => Promise<void>;
   register: (username: string, email: string, password: string) => Promise<void>;
   logout: () => void;
+  updateUser: (user: User) => void;
 };
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -42,6 +43,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     await login(username, password);
   };
 
+  const updateUser = (next: User) => {
+    setUser(next);
+    localStorage.setItem("yogadb_user", JSON.stringify(next));
+  };
+
   const logout = () => {
     setToken(null);
     setUser(null);
@@ -49,7 +55,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     localStorage.removeItem("yogadb_user");
   };
 
-  const value = useMemo(() => ({ user, token, login, register, logout }), [user, token]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- the functions only use state setters
+  const value = useMemo(() => ({ user, token, login, register, logout, updateUser }), [user, token]);
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
 

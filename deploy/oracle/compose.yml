@@ -1,5 +1,6 @@
-# YogaDB production stack on the Oracle VM. Started by server-deploy.sh with
-# --env-file .env (DOMAIN, SECRET_KEY, POSTGRES_PASSWORD, ADMIN_PASSWORD).
+# YogaDB stack on the Oracle VM, used for production (project "yogadb") and QA ("yogadb-qa").
+# Started by server-deploy.sh with -p <project> --env-file .env; the env file holds DOMAIN,
+# SECRET_KEY, POSTGRES_PASSWORD, ADMIN_PASSWORD, APP_VERSION, APP_COMMIT and BACKUP_DIR.
 name: yogadb
 
 services:
@@ -28,6 +29,8 @@ services:
     environment:
       ENV: production
       DEBUG: "false"
+      APP_VERSION: ${APP_VERSION:-dev}
+      APP_COMMIT: ${APP_COMMIT:-}
       DATABASE_URL: postgresql://yogadb:${POSTGRES_PASSWORD}@db:5432/yogadb
       SECRET_KEY: ${SECRET_KEY:?set in .env}
       ADMIN_PASSWORD: ${ADMIN_PASSWORD:?set in .env}
@@ -48,6 +51,7 @@ services:
       context: ../../frontend
       args:
         VITE_API_BASE_URL: /api
+        VITE_APP_VERSION: ${APP_VERSION:-dev}
     restart: unless-stopped
     depends_on:
       - backend
@@ -66,8 +70,8 @@ services:
         condition: service_healthy
     environment:
       PGPASSWORD: ${POSTGRES_PASSWORD}
-    # Daily database dump and user-uploaded photos, 14 days kept, in /opt/backups/yogadb on
-    # the host. Imported asana images are not copied: their source is the uploader's PC.
+    # Daily database dump and user-uploaded photos, 14 days kept, in BACKUP_DIR on the host
+    # (/opt/backups/<project>). Imported asana images are not copied: their source is the uploader's PC.
     entrypoint:
       - sh
       - -c
@@ -81,7 +85,7 @@ services:
           sleep 86400
         done
     volumes:
-      - /opt/backups/yogadb:/backups
+      - ${BACKUP_DIR:-/opt/backups/yogadb}:/backups
       - uploads:/uploads:ro
     networks:
       - internal

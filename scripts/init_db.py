@@ -88,7 +88,7 @@ def main() -> None:
         if not admin:
             admin = User(
                 username="shimon",
-                email="shimon@example.com",
+                email=settings.admin_email,
                 password_hash=get_password_hash(settings.admin_password),
                 role="admin",
             )

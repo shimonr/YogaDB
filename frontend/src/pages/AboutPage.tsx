@@ -6,6 +6,7 @@ export function AboutPage() {
         Yoga DB is a searchable platform for yoga asanas, transitions, and flows with ranking and user-generated media.
       </p>
       <p className="text-sm text-slate-600">Contact: shimon@example.com</p>
+      <p className="text-sm text-slate-500">Version {import.meta.env.VITE_APP_VERSION}</p>
     </div>
   );
 }

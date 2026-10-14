@@ -1,16 +1,22 @@
 #!/usr/bin/env bash
-# Runs ON the Oracle VM (streamed over SSH by scripts/deploy.sh). Idempotent: the first run
-# sets everything up, later runs update to the latest pushed code.
+# Runs ON the Oracle VM (started over SSH by scripts/deploy.sh / deploy.ps1). Idempotent: the
+# first run sets everything up, later runs update to the latest pushed code.
 #   - opens ports 80/443 in the VM firewall
 #   - starts the shared Caddy reverse proxy (HTTPS for all apps on the VM)
 #   - clones or updates the repo, creates the secrets file on first run
-#   - rebuilds and restarts the YogaDB containers, then checks they respond
+#   - rebuilds and restarts the stack, then checks it responds with the deployed version
+# The same script deploys production (PROJECT=yogadb) and QA (PROJECT=yogadb-qa, see qa.env).
 set -euo pipefail
 
 REPO_URL="${REPO_URL:-https://github.com/shimonr/YogaDB.git}"
 APP_DIR="${APP_DIR:-/opt/apps/yogadb}"
 BRANCH="${BRANCH:-master}"
 DOMAIN="${DOMAIN:?DOMAIN is required}"
+PROJECT="${PROJECT:-yogadb}"
+DATA_DIR="${DATA_DIR:-/opt/apps/yogadb-data}"
+BACKUP_DIR="${BACKUP_DIR:-/opt/backups/$PROJECT}"
+IMPORT_ON_DEPLOY="${IMPORT_ON_DEPLOY:-0}"        # re-import the asana CSV + photos after starting
+SEED_SAMPLE_CONTENT="${SEED_SAMPLE_CONTENT:-0}"  # add sample transitions/flows/classes
 
 step() { echo "==> $*"; }
 
@@ -44,7 +50,9 @@ if [[ ! -d "$APP_DIR/.git" ]]; then
 fi
 git -C "$APP_DIR" fetch --quiet origin "$BRANCH"
 git -C "$APP_DIR" reset --quiet --hard "origin/$BRANCH"
-echo "    at $(git -C "$APP_DIR" log -1 --format='%h %s')"
+version="$(cat "$APP_DIR/VERSION" 2>/dev/null || echo dev)"
+commit="$(git -C "$APP_DIR" rev-parse --short HEAD)"
+echo "    version $version at $(git -C "$APP_DIR" log -1 --format='%h %s')"
 
 env_file="$APP_DIR/deploy/oracle/.env"
 if [[ ! -f "$env_file" ]]; then
@@ -67,10 +75,12 @@ set_env() {  # set KEY=VALUE in the env file (compose reads it; sudo would drop 
   fi
 }
 set_env DOMAIN "$DOMAIN"
+set_env APP_VERSION "$version"
+set_env APP_COMMIT "$commit"
+set_env BACKUP_DIR "$BACKUP_DIR"
 # Asana CSV + images uploaded with upload-photos.cmd replace the repo's sample data.
-data_dir="${DATA_DIR:-/opt/apps/yogadb-data}/asanas"
-if [[ -f "$data_dir/yoga_asanas.csv" ]]; then
-  set_env ASANAS_DATA_DIR "$data_dir"
+if [[ -f "$DATA_DIR/asanas/yoga_asanas.csv" ]]; then
+  set_env ASANAS_DATA_DIR "$DATA_DIR/asanas"
   set_env ASANAS_CSV_FILE yoga_asanas.csv
 fi
 
@@ -78,33 +88,46 @@ step "Proxy: shared Caddy"
 dc network inspect web >/dev/null 2>&1 || dc network create web >/dev/null
 dc compose -f "$APP_DIR/deploy/oracle/proxy/compose.yml" up -d --quiet-pull
 
-step "App: build and start"
-sudo mkdir -p /opt/backups/yogadb
-dc compose -f "$APP_DIR/deploy/oracle/compose.yml" --env-file "$env_file" up -d --build --remove-orphans --quiet-pull
+step "App: build and start ($PROJECT)"
+sudo mkdir -p "$BACKUP_DIR"
+compose_app=(compose -p "$PROJECT" -f "$APP_DIR/deploy/oracle/compose.yml" --env-file "$env_file")
+dc "${compose_app[@]}" up -d --build --remove-orphans --quiet-pull
 dc image prune -f >/dev/null
 
 step "Check: backend health"
-compose_app=(compose -f "$APP_DIR/deploy/oracle/compose.yml" --env-file "$env_file")
-healthy=0
+health=""
 for _ in $(seq 1 60); do
-  if dc "${compose_app[@]}" exec -T frontend wget -qO- http://backend:8000/health >/dev/null 2>&1; then
-    healthy=1
+  if health="$(dc "${compose_app[@]}" exec -T frontend wget -qO- http://backend:8000/health 2>/dev/null)"; then
     break
   fi
+  health=""
   sleep 2
 done
-if [[ $healthy != 1 ]]; then
+if [[ -z "$health" ]]; then
   echo "    backend did not become healthy; last log lines:" >&2
   dc "${compose_app[@]}" logs --tail 40 backend >&2
   exit 1
 fi
-echo "    backend is healthy"
+if [[ "$health" != *"\"version\":\"$version\""* ]]; then
+  echo "    backend reports $health, expected version $version" >&2
+  exit 1
+fi
+echo "    backend is healthy: $health"
+
+if [[ "$IMPORT_ON_DEPLOY" == 1 ]]; then
+  step "Data: import asana CSV and photos"
+  dc "${compose_app[@]}" exec -T backend python -m app.services.asana_import
+fi
+if [[ "$SEED_SAMPLE_CONTENT" == 1 ]]; then
+  step "Data: sample transitions, flows and classes"
+  dc "${compose_app[@]}" exec -T backend python -m app.services.sample_content
+fi
 
 step "Check: HTTPS through the proxy"
 # Resolve to this machine so the check doesn't depend on the cloud firewall; the deploy
 # script checks the public URL from outside afterwards.
 for _ in $(seq 1 40); do
-  if curl -fs -o /dev/null --max-time 5 --resolve "$DOMAIN:443:127.0.0.1" "https://$DOMAIN/api/asanas?limit=1"; then
+  if curl -fs -o /dev/null --max-time 5 --resolve "$DOMAIN:443:127.0.0.1" "https://$DOMAIN/api/health"; then
     echo "    https://$DOMAIN serves the app"
     exit 0
   fi

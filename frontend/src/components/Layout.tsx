@@ -2,7 +2,7 @@ import { NavLink, Outlet, useLocation, Link } from "react-router-dom";
 import { useEffect, useState } from "react";
 import {
   Home, Layers, ArrowRightLeft, Route, Gamepad2, Search,
-  Info, Shield, BookOpen,
+  Info, Shield, BookOpen, Menu, X,
 } from "lucide-react";
 import { useAuth } from "../lib/auth";
 import { api } from "../lib/api";
@@ -28,6 +28,7 @@ const staticLabels: Record<string, string> = {
   about: "About",
   admin: "Admin",
   auth: "Login",
+  account: "Account",
 };
 
 const gameLabels: Record<string, string> = {
@@ -43,6 +44,7 @@ function Breadcrumbs() {
   const [entityNames, setEntityNames] = useState<Record<string, string>>({});
 
   useEffect(() => {
+    const parts = location.pathname.split("/").filter(Boolean);
     const asanaIds = parts.filter((p, i) => /^\d+$/.test(p) && parts[i - 1] === "asanas");
     const transIds = parts.filter((p, i) => /^\d+$/.test(p) && parts[i - 1] === "transitions");
     const flowIds = parts.filter((p, i) => /^\d+$/.test(p) && parts[i - 1] === "flows");
@@ -119,67 +121,97 @@ function Breadcrumbs() {
   );
 }
 
+function NavItems({ collapsed, isAdmin }: { collapsed: boolean; isAdmin: boolean }) {
+  const items = isAdmin ? [...nav, { to: "/admin", label: "Admin", icon: Shield }] : nav;
+  return (
+    <>
+      {items.map((item) => (
+        <NavLink
+          key={item.to}
+          to={item.to}
+          end={item.to === "/"}
+          className={({ isActive }) =>
+            `block rounded-md px-3 py-2 text-sm transition-colors ${isActive ? "bg-sage-100 text-sage-700" : "hover:bg-sage-100"}`
+          }
+        >
+          {collapsed ? (
+            <div className="relative group flex justify-center">
+              <item.icon size={20} />
+              <div className="absolute left-full ml-2 top-1/2 -translate-y-1/2 bg-slate-800 text-white text-xs px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap z-50">
+                {item.label}
+              </div>
+            </div>
+          ) : (
+            <div className="flex items-center gap-2">
+              <item.icon size={16} />
+              {item.label}
+            </div>
+          )}
+        </NavLink>
+      ))}
+    </>
+  );
+}
+
 export function Layout() {
   const [collapsed, setCollapsed] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
   const { user, logout } = useAuth();
+  const location = useLocation();
+  const isAdmin = user?.role === "admin";
+
+  // Close the phone menu after navigating.
+  useEffect(() => setMenuOpen(false), [location.pathname]);
 
   return (
     <div className="min-h-screen md:flex">
-      <aside className={`bg-white border-r border-sand-100 ${collapsed ? "w-16" : "w-60"} transition-all`}>
+      {/* Phone: top bar with a menu button */}
+      <div className="md:hidden bg-white border-b border-sand-100">
+        <div className="px-4 py-3 flex justify-between items-center">
+          <Link to="/" className="font-semibold text-sage-700">Yoga DB</Link>
+          <button
+            className="p-1 text-sage-700"
+            aria-label={menuOpen ? "Close menu" : "Open menu"}
+            aria-expanded={menuOpen}
+            onClick={() => setMenuOpen((v) => !v)}
+          >
+            {menuOpen ? <X size={22} /> : <Menu size={22} />}
+          </button>
+        </div>
+        {menuOpen && (
+          <nav className="px-3 pb-3 space-y-1">
+            <NavItems collapsed={false} isAdmin={isAdmin} />
+          </nav>
+        )}
+      </div>
+
+      {/* Tablet and desktop: collapsible sidebar */}
+      <aside className={`hidden md:flex md:flex-col bg-white border-r border-sand-100 ${collapsed ? "w-16" : "w-60"} transition-all`}>
         <div className="p-4 border-b border-sand-100 flex justify-between items-center">
           <span className={`font-semibold text-sage-700 ${collapsed ? "hidden" : "inline"}`}>Yoga DB</span>
-          <button className="text-xs text-sage-700" onClick={() => setCollapsed((v) => !v)}>
+          <button
+            className="text-xs text-sage-700"
+            aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
+            onClick={() => setCollapsed((v) => !v)}
+          >
             {collapsed ? ">>" : "<<"}
           </button>
         </div>
-        <nav className="p-3 space-y-1">
-          {nav.map((item) => (
-            <NavLink
-              key={item.to}
-              to={item.to}
-              className="block rounded-md px-3 py-2 text-sm hover:bg-sage-100 transition-colors"
-            >
-              {collapsed ? (
-                <div className="relative group flex justify-center">
-                  <item.icon size={20} />
-                  <div className="absolute left-full ml-2 top-1/2 -translate-y-1/2 bg-slate-800 text-white text-xs px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap z-50">
-                    {item.label}
-                  </div>
-                </div>
-              ) : (
-                <div className="flex items-center gap-2">
-                  <item.icon size={16} />
-                  {item.label}
-                </div>
-              )}
-            </NavLink>
-          ))}
-          {user?.role === "admin" && (
-            <NavLink to="/admin" className="block rounded-md px-3 py-2 text-sm hover:bg-sage-100">
-              {collapsed ? (
-                <div className="relative group flex justify-center">
-                  <Shield size={20} />
-                  <div className="absolute left-full ml-2 top-1/2 -translate-y-1/2 bg-slate-800 text-white text-xs px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap z-50">
-                    Admin
-                  </div>
-                </div>
-              ) : (
-                <div className="flex items-center gap-2">
-                  <Shield size={16} />
-                  Admin
-                </div>
-              )}
-            </NavLink>
-          )}
+        <nav className="p-3 space-y-1 flex-1">
+          <NavItems collapsed={collapsed} isAdmin={isAdmin} />
         </nav>
+        {!collapsed && <p className="px-4 py-3 text-xs text-slate-400">v{import.meta.env.VITE_APP_VERSION}</p>}
       </aside>
-      <div className="flex-1">
-        <header className="bg-white border-b border-sand-100 p-4 flex justify-between">
+
+      <div className="flex-1 min-w-0">
+        <header className="bg-white border-b border-sand-100 px-4 py-3 md:p-4 flex justify-between items-start gap-3">
           <Breadcrumbs />
-          <div className="text-sm">
+          <div className="text-sm shrink-0">
             {user ? (
               <div className="flex items-center gap-3">
-                <span>{user.username}</span>
+                <Link to="/account" className="text-sage-700 hover:underline" title="Account settings">
+                  {user.username}
+                </Link>
                 <button onClick={logout} className="bg-sage-500 text-white px-3 py-1 rounded">
                   Logout
                 </button>
@@ -191,7 +223,7 @@ export function Layout() {
             )}
           </div>
         </header>
-        <main className="p-6">
+        <main className="p-4 md:p-6">
           <Outlet />
         </main>
       </div>

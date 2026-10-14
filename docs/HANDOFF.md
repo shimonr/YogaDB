@@ -1,64 +1,36 @@
-# Session handoff — updated 2026-10-11
+# Session handoff — version 0.2.0 (2026-10-13)
 
-Previous session: https://ampcode.com/threads/T-01a126c7-3226-76bb-9da0-c62acc7157e3
+Snapshot of where YogaDB stands; the `version-wrap` skill rewrites it at the end of each session. History of changes: `CHANGELOG.md` and git tags. Earlier session threads: https://ampcode.com/threads/T-01a126c7-3226-76bb-9da0-c62acc7157e3
 
 ## Where things stand
 
-- Branch `master`, everything pushed to `origin/master`. Commits from the session, after the orb setup script (`7cae3cf`):
+- **Version 0.2.0** (tag `v0.2.0`), the pre-QA release. CI (lint, tests, migrations check, build) passes on every push.
+- **Production:** https://yogadb.129-159-8-242.sslip.io on the Oracle VM `ubuntu@129.159.8.242` (Ubuntu 24.04 ARM, 4 cores, 23 GB RAM, 96 GB disk). 106 asanas, 1,059 photos, real data.
+- **QA copy:** https://qa.yogadb.129-159-8-242.sslip.io, own database, same photos, sample transitions/flows/classes. Ready for the QA phase.
+- **Free services** (Vercel/Render/Neon/Cloudinary) are a documented backup only; not verified recently.
 
-  | Commit | What |
-  |--------|------|
-  | `e28e667` | Test fix: reset the registration rate limiter between tests |
-  | `927bd72` | Backend security/bug fixes, Alembic baseline, pinned deps, ruff |
-  | `0ced37d` | Frontend fixes (hook order, 200-item truncation, admin errors), ESLint |
-  | `1b2629f` | Render/Docker fixes, sample CSV replaces placeholder images, CI, docs |
-  | (latest) | This handoff note |
+## How to work
 
-- Checks at `1b2629f`: 78 backend tests pass, `ruff check` clean, `alembic check` clean, ESLint 0 errors (4 `exhaustive-deps` warnings), `npm run build` OK. Browser-checked admin DB browser, SQL console, flows, games; Docker images built and run together like `docker-compose.yml`.
+- Local run (Windows): `run-local.cmd`. Orb: `.agents/setup` installs everything; see `AGENTS.md`.
+- Deploy: push to `master`, then `deploy.cmd` / `deploy-qa.cmd` or `scripts/deploy.sh [qa]`. Publish asana data/photos from the PC: `upload-photos.cmd`. Backups to the PC: `download-backups.cmd`.
+- End of session: `version-wrap` skill (docs, tests, version bump, tag, push, deploy QA then production, `scripts/verify-release.sh`).
+- Server layout: production checkout `/opt/apps/yogadb`, QA `/opt/apps/yogadb-qa`; secrets incl. admin password in `<checkout>/deploy/oracle/.env`; asana data `/opt/apps/yogadb-data/asanas`; backups `/opt/backups/yogadb[-qa]`; shared Caddy proxy (compose project `proxy`, network `web`).
+- SSH keys on the VM: the owner's Oracle key, his PC key (`shimo@Shimon-LT-ACER`), and `amp-deploy@yogadb` (private key only in the 2026-10-11 orb). Agents in new orbs need an `ORACLE_SSH_PRIVATE_KEY` Amp secret.
+- Amp project secrets: `CLOUDINARY_CLOUD_NAME` (stored with a capital letter; Cloudinary accepts it lowercased), `CLOUDINARY_API_KEY`, `CLOUDINARY_API_SECRET`.
 
-**Next steps:** confirm the first CI run on GitHub passes (`.github/workflows/ci.yml`), then deploy once the production settings below are in place. Pushing to `master` may already trigger a Render auto-deploy, so check those settings first.
+## Decisions
 
-## Production: Oracle VM (default since 2026-10-11)
+- One Docker stack definition (`deploy/oracle/compose.yml`) serves production and QA via compose project names; Caddy routes by hostname and issues certificates.
+- Alembic baseline `0001_baseline` adopts databases created by older `create_all` versions; migrations run on API startup.
+- Photo paths are stored relative to the images folder or `data/`; re-imports keep unchanged photos (ids, ratings) and asana rank averages; user uploads are never touched by imports.
+- Asana originals live on the owner's PC (yoga-image-collector); the VM copy is replaced by `upload-photos.cmd`. Imported images are not in server backups for that reason.
+- Login limit: 5 failed attempts per IP + username in 5 minutes (successful logins don't count); registrations 10 per IP in 5 minutes. In memory, per process.
+- Games only use asanas with a photo and a distinct Sanskrit name.
 
-- Live: https://yogadb.129-159-8-242.sslip.io (Let's Encrypt cert via Caddy). VM `ubuntu@129.159.8.242`: Ubuntu 24.04, ARM64, 4 cores, 23 GB RAM, 96 GB disk.
-- Deploy: push to `master`, then `deploy.cmd` (Windows) / `scripts/deploy.sh`; agents use the `deploying-to-oracle` skill. Details: `docs/DEPLOYMENT.md`.
-- Server layout: repo at `/opt/apps/yogadb`, secrets (incl. admin password) in `/opt/apps/yogadb/deploy/oracle/.env`, backups in `/opt/backups/yogadb`, shared Caddy proxy (compose project `proxy`, network `web`) for future apps.
-- SSH keys authorized on the VM: the user's own key, and `amp-deploy@yogadb`, whose private key exists only in the 2026-10-11 session's orb (`~/.ssh/oracle_deploy`). For agents in new orbs, add an `ORACLE_SSH_PRIVATE_KEY` Amp secret with a key the VM accepts.
-- Started fresh from the 10-pose sample CSV; photo uploads go to the VM disk (`yogadb_uploads` volume). Cloudinary/Neon/Render/Vercel remain the documented backup (option 2).
-- Real data live since 2026-10-11: 106 asanas, 1,059 photos in `/opt/apps/yogadb-data/asanas` (photos copied from Cloudinary, CSV copied from the user's PC with scp). Refresh from the PC with `upload-photos.cmd`. The user's PC key (`shimo@Shimon-LT-ACER`) is authorized on the VM, so `deploy.cmd` / `upload-photos.cmd` work with the default key.
+## Still open
 
-## Before deploying to the free-tier backup
-
-1. Set `ADMIN_PASSWORD` in Render (now in `render.yaml` as `sync: false`). Without it, a fresh production DB gets no admin user.
-2. `SECRET_KEY` must be ≥ 32 chars in production or the app refuses to start. Render's `generateValue` should give 44 chars (from docs, not verified).
-3. If the production DB ever ran the old Alembic migrations (unlikely — they didn't match the models), run `alembic stamp --purge head` once; otherwise startup fails with "Can't locate revision".
-
-## Decisions made (and why)
-
-- **Alembic:** old migrations 0001–0006 deleted (diverged from the models, never applied the real schema). New `0001_baseline` creates only missing tables, so it adopts databases created by `create_all`. The API runs `upgrade head` on startup (`app/core/migrations.py`). CI runs `alembic check`.
-- **Photo paths:** stored relative to `ASANAS_IMAGES_DIR` (imports) or `data/` (uploads); old absolute paths still resolve (`app/services/photo_storage.py`). `local_path` removed from the public photo API.
-- **Data:** the 600 images in `data/asanas` were unrelated placeholder photos the importer couldn't match; removed. `data/asanas/yoga_asanas.sample.csv` (10 poses, no images) is the default in `backend/.env.example`, seeded on first startup.
-- **Deleting users:** done in app code (rankings + ranking logs deleted, activity logs/photos set to NULL, averages recomputed) instead of a schema change.
-- **SQL console:** read-only enforced by the DB (`SET TRANSACTION READ ONLY` on Postgres, `PRAGMA query_only` on SQLite), one statement, `SELECT`/`WITH` only; keyword blocklist removed.
-- **SQLite foreign keys** are now enforced (`app/core/database.py`) so local runs match Postgres.
-- **Rate limiter:** start commands use `--proxy-headers --forwarded-allow-ips='*'` so it sees real client IPs behind Render/Fly/nginx.
-- **Node:** orbs use the preinstalled Node 26 (docs say "Node 20+"); CI uses `.nvmrc` (20).
-
-## Data fixes on the VM (2026-10-13)
-
-- Filled 12 missing Sanskrit names in the VM's CSV (e.g. Tabletop Pose = Bharmanasana, Boat Twist = Parivrtta Navasana, Neck Rolls = Greeva Sanchalana). Original kept at `/opt/apps/yogadb-data/yoga_asanas.before-sanskrit.csv`. The owner's PC copy still lacks them until he copies the VM file back.
-- 12 fitness exercises (rows 77, 79–82, 85, 92–94, 97–99) have no established Sanskrit name; the games skip asanas without a distinct Sanskrit name or photo. Rows 93 and 99 are both "Standing Quad Stretch".
-
-## Still open (optional)
-
-- Rate limiter is in memory per process.
-- 4 ESLint `react-hooks/exhaustive-deps` warnings.
-- `scripts/init_db.py` deletes and re-creates imported photo rows on each run, so photo ids change and old photo rankings orphan.
-- JWT is kept in `localStorage`; a 401 anywhere hard-redirects to `/auth`.
-
-## Working in an orb
-
-- `.agents/setup` installs everything (uv venv `backend/.venv` with Python 3.12, `npm ci`, `.env` files).
-- Run: `amp orb service start yoga-api --command 'cd backend && .venv/bin/python -m uvicorn app.main:app --host 127.0.0.1 --port 8000'` and `amp orb service start yoga-web --command 'cd frontend && npm run dev -- --host 127.0.0.1'`.
-- Verify: `cd backend && .venv/bin/python -m pytest tests -q && .venv/bin/ruff check .`; `cd frontend && npm run lint && npm run build`.
-- Admin login locally: `shimon` / `adm`.
+- **Data:** 12 fitness exercises have no Sanskrit name (rows 77, 79–82, 85, 92–94, 97–99 of the CSV); rows 93 and 99 are both "Standing Quad Stretch". The VM's CSV has 12 Sanskrit names filled that the owner's PC copy may not have yet (copy it back with the `scp` command in the 2026-10-13 session, or re-add them on the PC before the next `upload-photos.cmd`).
+- **Backups:** only on the VM plus whatever `download-backups.cmd` copied; no automatic off-site copy (Oracle Object Storage would need OCI credentials).
+- **Accounts:** no "forgot password" email flow (needs an email provider); the admin email is still `shimon@example.com` until changed on the Account page.
+- **Free-tier backup:** not exercised since the Oracle move; Cloudinary cloud name capitalization may break uploads there.
+- **Tests:** browser smoke tests cover the main read-only flows and login; there are no browser tests for admin editing or uploads.

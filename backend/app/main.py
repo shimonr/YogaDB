@@ -41,7 +41,7 @@ def _add_admin(db: Session) -> None:
     db.add(
         User(
             username="shimon",
-            email="shimon@example.com",
+            email=settings.admin_email,
             password_hash=get_password_hash(settings.admin_password),
             role="admin",
         )
@@ -72,7 +72,7 @@ async def lifespan(app: FastAPI):
     yield
 
 
-app = FastAPI(title=settings.app_name, debug=settings.debug, lifespan=lifespan)
+app = FastAPI(title=settings.app_name, version=settings.app_version, debug=settings.debug, lifespan=lifespan)
 
 app.add_middleware(
     CORSMiddleware,
@@ -106,5 +106,6 @@ app.include_router(admin.router, prefix="/api/admin", tags=["admin"])
 
 
 @app.get("/health")
+@app.get("/api/health")
 def healthcheck() -> dict[str, str]:
-    return {"status": "ok"}
+    return {"status": "ok", "version": settings.app_version, "commit": settings.app_commit}

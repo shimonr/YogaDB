@@ -13,7 +13,7 @@ from app.models import Asana, Photo, User
 from app.schemas import PhotoCreate, PhotoOut
 from app.services.activity_service import log_activity
 from app.services.cloudinary_service import delete_image, extract_public_id, upload_image
-from app.services.photo_storage import UPLOAD_ROOT, is_uploaded_file, resolve_photo_file, to_stored_path
+from app.services.photo_storage import UPLOAD_ROOT, is_uploaded_file, resolve_photo_file, thumbnail, to_stored_path
 
 router = APIRouter()
 
@@ -69,7 +69,11 @@ def get_photo(photo_id: int, db: Annotated[Session, Depends(get_db)]) -> Photo:
 
 
 @router.get("/{photo_id}/file")
-def serve_photo_file(photo_id: int, db: Annotated[Session, Depends(get_db)]):
+def serve_photo_file(
+    photo_id: int,
+    db: Annotated[Session, Depends(get_db)],
+    w: Annotated[int | None, Query(ge=32, le=2000, description="Resize to at most this width")] = None,
+):
     item = db.query(Photo).filter(Photo.id == photo_id).first()
     if not item:
         raise HTTPException(status_code=404, detail="Photo not found")
@@ -78,7 +82,13 @@ def serve_photo_file(photo_id: int, db: Annotated[Session, Depends(get_db)]):
     path = resolve_photo_file(item.local_path)
     if path is None:
         raise HTTPException(status_code=404, detail="Photo file missing")
-    return FileResponse(path, media_type=_MEDIA_TYPES.get(path.suffix.lower(), "image/jpeg"))
+    if w:
+        path = thumbnail(path, w)
+    return FileResponse(
+        path,
+        media_type=_MEDIA_TYPES.get(path.suffix.lower(), "image/jpeg"),
+        headers={"Cache-Control": "public, max-age=86400"},
+    )
 
 
 @router.post("/upload", response_model=PhotoOut, status_code=status.HTTP_201_CREATED)

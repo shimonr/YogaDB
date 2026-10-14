@@ -88,7 +88,8 @@ CI (`.github/workflows/ci.yml`) runs these plus `alembic check`.
 
 ## Deployment
 
-- **Default — Oracle Cloud VM:** commit, push, then double-click `deploy.cmd` (Windows) or run `scripts/deploy.sh`. Double-click `upload-photos.cmd` to publish the asana CSV and photos from your PC. Live at https://yogadb.129-159-8-242.sslip.io.
+- **Default — Oracle Cloud VM:** commit, push, then double-click `deploy.cmd` (Windows) or run `scripts/deploy.sh`. Live at https://yogadb.129-159-8-242.sslip.io; QA copy at https://qa.yogadb.129-159-8-242.sslip.io (`deploy-qa.cmd`).
+- **One-click tools (Windows):** `run-local.cmd` (run on this PC), `deploy.cmd` / `deploy-qa.cmd`, `upload-photos.cmd` (publish the asana CSV and photos), `download-backups.cmd` (copy server backups to this PC).
 - **Backup — free services:** Vercel (frontend) + Render/Fly (backend) + Neon (database) + Cloudinary (photos).
 
 Details in [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md) and [docs/ENVIRONMENT.md](docs/ENVIRONMENT.md).

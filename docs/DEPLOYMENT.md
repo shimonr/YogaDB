@@ -7,7 +7,8 @@
 
 ## Option 1: Oracle Cloud VM (default)
 
-- URL: https://yogadb.129-159-8-242.sslip.io (sslip.io is a free hostname that resolves to the VM's IP; see "Own domain" below)
+- Production: https://yogadb.129-159-8-242.sslip.io (sslip.io is a free hostname that resolves to the VM's IP; see "Own domain" below)
+- QA copy: https://qa.yogadb.129-159-8-242.sslip.io (own database, same photos, sample transitions/flows/classes)
 - VM: `129.159.8.242`, SSH user and paths in [`deploy/oracle/config.env`](../deploy/oracle/config.env)
 
 ```
@@ -20,9 +21,11 @@ Internet ─80/443─▶ Caddy (shared, /opt/apps/yogadb/deploy/oracle/proxy) �
 
 The server always runs what is pushed to `origin/master`. Commit and push, then:
 
-- **Windows:** double-click `deploy.cmd` in the repo root (opens the site when done)
-- **macOS / Linux / Amp orb:** `scripts/deploy.sh`
-- **Amp agents:** the `deploying-to-oracle` skill (`.agents/skills/deploying-to-oracle`)
+- **Windows:** double-click `deploy.cmd` (production) or `deploy-qa.cmd` (QA copy) in the repo root; it opens the site when done
+- **macOS / Linux / Amp orb:** `scripts/deploy.sh` (production) or `scripts/deploy.sh qa`
+- **Amp agents:** the `deploying-to-oracle` skill; at the end of a session the `version-wrap` skill bumps the version, deploys QA and production and verifies the release (`scripts/verify-release.sh`)
+
+Each deploy stamps the version from `VERSION` and the commit into the app; `https://<site>/api/health` shows them, and the deploy scripts fail if the site does not report the expected version.
 
 Both scripts refuse to run when your checkout has unpushed commits. They SSH to the VM and run [`deploy/oracle/server-deploy.sh`](../deploy/oracle/server-deploy.sh), which is safe to rerun and on every deploy:
 
@@ -33,6 +36,15 @@ Both scripts refuse to run when your checkout has unpushed commits. They SSH to 
 5. checks the backend health and HTTPS, then the deploy script checks the public URL
 
 SSH key: the scripts use your default SSH key. To use another key file set `DEPLOY_SSH_KEY=C:\path\to\key` (Windows) or `DEPLOY_SSH_KEY=~/.ssh/key` (bash). In an Amp orb, `scripts/deploy.sh` also accepts the key text in an `ORACLE_SSH_PRIVATE_KEY` secret.
+
+### QA copy
+
+`deploy/oracle/qa.env` overrides the production settings: checkout `/opt/apps/yogadb-qa`, Docker Compose project `yogadb-qa` (separate database and upload volumes), backups in `/opt/backups/yogadb-qa`. Every QA deploy re-imports the asana CSV and photos from `/opt/apps/yogadb-data/asanas` and adds the sample transitions, flows and classes (`python -m app.services.sample_content`). Its admin password is in `/opt/apps/yogadb-qa/deploy/oracle/.env`. Run the browser smoke tests against it with `cd frontend && npx playwright install chromium && npm run e2e`.
+
+### Monitoring and backups off the VM
+
+- `.github/workflows/uptime.yml` checks production every 30 minutes; GitHub emails the repository owner when a run fails.
+- `download-backups.cmd` copies `/opt/backups/yogadb` (database dumps and user uploads) to `Documents\YogaDB-backups` on the PC. Run it regularly; the VM holds the only other copy.
 
 ### Operate
 

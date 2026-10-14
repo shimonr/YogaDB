@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useParams, Link } from "react-router-dom";
 import { api, fetchAll } from "../lib/api";
 import type { Class, Flow, Transition, Asana } from "../lib/types";
@@ -17,7 +17,7 @@ export function ClassDetailPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
-  const refresh = () => {
+  const refresh = useCallback(() => {
     if (!id) return;
     setLoading(true);
     setError("");
@@ -35,9 +35,9 @@ export function ClassDetailPage() {
       })
       .catch(() => setError("Failed to load class details."))
       .finally(() => setLoading(false));
-  };
+  }, [id]);
 
-  useEffect(() => { refresh(); }, [id]);
+  useEffect(() => { refresh(); }, [refresh]);
 
   if (loading) return <p className="text-slate-500">Loading...</p>;
   if (error) return <p className="text-red-600">{error}</p>;

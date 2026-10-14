@@ -22,16 +22,16 @@ if ($LASTEXITCODE -ne 0) { throw "Packing the photos failed." }
 Write-Host ("    {0:N0} MB" -f ((Get-Item -LiteralPath $tarball).Length / 1MB))
 
 try {
-    Write-Host "==> Uploading to $target"
-    scp @sshArgs $tarball "${target}:/tmp/yogadb-asanas.tar"
+    Write-Host "==> Uploading to $sshTarget"
+    scp @sshArgs $tarball "${sshTarget}:/tmp/yogadb-asanas.tar"
     if ($LASTEXITCODE -ne 0) { throw "Upload failed." }
 
-    ssh @sshArgs $target (Get-RemoteCommand "server-import-photos.sh /tmp/yogadb-asanas.tar")
+    ssh @sshArgs $sshTarget (Get-RemoteCommand "server-import-photos.sh /tmp/yogadb-asanas.tar")
     if ($LASTEXITCODE -ne 0) { throw "Import failed on the server (see the output above)." }
 } finally {
     Remove-Item -Recurse -Force -LiteralPath $staging, $tarball -ErrorAction SilentlyContinue
 }
 
-Test-PublicSite
+Test-PublicSite ""
 Write-Host "Photos are live: https://$domain/asanas"
 Start-Process "https://$domain/asanas"

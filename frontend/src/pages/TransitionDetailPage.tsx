@@ -61,7 +61,7 @@ export function TransitionDetailPage() {
           {startAsana && <p className="text-sm text-slate-500">{startAsana.sanskrit_name}</p>}
           {startPhoto ? (
             <Link to={`/photos/${startPhoto.id}`}>
-              <img src={photoFileUrl(startPhoto.id)} alt="" className="w-full aspect-square object-cover rounded-xl" />
+              <img src={photoFileUrl(startPhoto.id, 600)} alt="" className="w-full aspect-square object-cover rounded-xl" />
             </Link>
           ) : (
             <div className="w-full aspect-square bg-slate-100 rounded-xl" />
@@ -75,7 +75,7 @@ export function TransitionDetailPage() {
           {endAsana && <p className="text-sm text-slate-500">{endAsana.sanskrit_name}</p>}
           {endPhoto ? (
             <Link to={`/photos/${endPhoto.id}`}>
-              <img src={photoFileUrl(endPhoto.id)} alt="" className="w-full aspect-square object-cover rounded-xl" />
+              <img src={photoFileUrl(endPhoto.id, 600)} alt="" className="w-full aspect-square object-cover rounded-xl" />
             </Link>
           ) : (
             <div className="w-full aspect-square bg-slate-100 rounded-xl" />

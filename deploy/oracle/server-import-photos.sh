@@ -32,5 +32,6 @@ DATA_DIR="$DATA_DIR" bash "$APP_DIR/deploy/oracle/server-deploy.sh"
 echo "==> Import: asanas and photos into the database"
 docker_cmd=(docker)
 docker info >/dev/null 2>&1 || docker_cmd=(sudo docker)
-"${docker_cmd[@]}" compose -f "$APP_DIR/deploy/oracle/compose.yml" --env-file "$APP_DIR/deploy/oracle/.env" \
+"${docker_cmd[@]}" compose -p "${PROJECT:-yogadb}" -f "$APP_DIR/deploy/oracle/compose.yml" --env-file "$APP_DIR/deploy/oracle/.env" \
   exec -T backend python -m app.services.asana_import
+echo "    The QA copy picks up the new photos on its next deploy (deploy-qa.cmd / scripts/deploy.sh qa)."

@@ -11,6 +11,8 @@ Copy from `backend/.env.example`. Relative paths are resolved from `backend/`, s
 | `DEBUG` | No | `false` | FastAPI debug mode; returns tracebacks in error responses |
 | `SECRET_KEY` | **Yes (prod)** | random per process in development | JWT signing secret; at least 32 random characters in production (`openssl rand -hex 32`) |
 | `ADMIN_PASSWORD` | **Yes (prod)** | `adm` | Password for the seeded admin user `shimon`; production refuses to seed with the default |
+| `ADMIN_EMAIL` | No | `shimon@example.com` | Email of the seeded admin user (change it later on the Account page) |
+| `APP_VERSION` / `APP_COMMIT` | No | `VERSION` file / empty | Reported at `/api/health`; deploys set them |
 | `ACCESS_TOKEN_EXPIRE_MINUTES` | No | `60` (`.env.example`: `1440`) | JWT lifetime |
 | `DATABASE_URL` | No | `sqlite:///./yogadb.db` | SQLAlchemy URL; the SQLite file is relative to the process cwd (`backend/`) |
 | `CORS_ORIGINS` | No | `http://localhost:5173` | Comma-separated allowed origins |

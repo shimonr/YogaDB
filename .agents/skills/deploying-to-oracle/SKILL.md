@@ -1,6 +1,6 @@
 ---
 name: deploying-to-oracle
-description: Deploys YogaDB to the production Oracle Cloud VM (129.159.8.242) with scripts/deploy.sh and checks the live site. Use when asked to deploy, release, ship to the server/production, or check or debug the Oracle deployment.
+description: Deploys YogaDB to the Oracle Cloud VM (129.159.8.242), production or the QA copy, with scripts/deploy.sh and checks the live site. Use when asked to deploy, ship to the server/production/QA, or check or debug the Oracle deployment.
 ---
 
 # Deploying YogaDB to the Oracle VM
@@ -14,8 +14,9 @@ The VM runs what is pushed to `origin/master`. Settings: `deploy/oracle/config.e
    - `~/.ssh/oracle_deploy` exists → `export DEPLOY_SSH_KEY=~/.ssh/oracle_deploy`
    - the `ORACLE_SSH_PRIVATE_KEY` environment variable is set (Amp secret) → nothing to do
    - otherwise stop and ask the user to add an `ORACLE_SSH_PRIVATE_KEY` secret containing a private key whose public key is in the server user's `~/.ssh/authorized_keys`
-3. Run `scripts/deploy.sh` from the repo root (a first deploy can take several minutes while images build).
-4. Report the commit deployed and the URL from the script's last line, `Deployed: https://...`.
+3. Run `scripts/deploy.sh` (production) or `scripts/deploy.sh qa` (QA copy) from the repo root. A first deploy can take several minutes while images build. Deploy QA first when the change is risky.
+4. The script fails unless the site reports the pushed version at `/api/health`. Report the version, commit and URL from its last line, `Deployed <target> <version>: https://...`.
+5. For a full check (version files, tag, CI, live version, browser smoke tests) run `scripts/verify-release.sh <prod|qa> --e2e`.
 
 ## When it fails
 

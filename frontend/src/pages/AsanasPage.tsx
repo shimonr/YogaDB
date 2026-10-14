@@ -38,7 +38,7 @@ export function AsanasPage() {
           <Link key={a.id} to={`/asanas/${a.id}`} className="bg-white p-4 rounded-xl border border-sand-100 hover:shadow-sm">
             {a.cover_photo_id && (
               <img
-                src={photoFileUrl(a.cover_photo_id)}
+                src={photoFileUrl(a.cover_photo_id, 600)}
                 alt={a.english_name}
                 className="w-full aspect-square object-cover rounded mb-2"
               />

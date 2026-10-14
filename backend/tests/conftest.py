@@ -1,3 +1,9 @@
+import os
+
+# Tests must never reach the real Cloudinary account, even when an orb has its keys as secrets.
+for _var in ("CLOUDINARY_CLOUD_NAME", "CLOUDINARY_API_KEY", "CLOUDINARY_API_SECRET"):
+    os.environ.pop(_var, None)
+
 import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine
@@ -26,7 +32,7 @@ app.dependency_overrides[get_db] = override_get_db
 
 @pytest.fixture(autouse=True)
 def setup_db():
-    auth_module._login_attempts.clear()
+    auth_module._login_failures.clear()
     auth_module._register_attempts.clear()
     Base.metadata.drop_all(bind=engine)
     Base.metadata.create_all(bind=engine)

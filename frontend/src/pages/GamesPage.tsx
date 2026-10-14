@@ -188,7 +188,7 @@ function MatchGame({ asanas, mode, onResult }: { asanas: GameAsana[]; mode: "mat
               }`}
             >
               {photoId ? (
-                <img src={photoFileUrl(photoId)} alt="" className="w-full aspect-square object-cover rounded" />
+                <img src={photoFileUrl(photoId, 600)} alt="" className="w-full aspect-square object-cover rounded" />
               ) : (
                 <div className="w-full aspect-square bg-slate-100 rounded" />
               )}
@@ -266,7 +266,7 @@ function SanskritFromImageGame({ asanas, onResult }: { asanas: GameAsana[]; onRe
     <div className="space-y-4">
       <div className="flex justify-center">
         {photoId ? (
-          <img src={photoFileUrl(photoId)} alt="" className="w-72 aspect-square object-cover rounded-xl" />
+          <img src={photoFileUrl(photoId, 600)} alt="" className="w-72 aspect-square object-cover rounded-xl" />
         ) : (
           <div className="w-72 aspect-square bg-slate-100 rounded-xl" />
         )}

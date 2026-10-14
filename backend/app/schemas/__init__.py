@@ -8,17 +8,29 @@ class ORMBase(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
 
+def _password_fits_bcrypt(v: str) -> str:
+    if len(v.encode("utf-8")) > 72:
+        raise ValueError("Password must be at most 72 bytes")
+    return v
+
+
 class UserCreate(BaseModel):
     username: str = Field(min_length=3, max_length=50)
     email: EmailStr
     password: str = Field(min_length=8)
 
-    @field_validator("password")
-    @classmethod
-    def password_fits_bcrypt(cls, v: str) -> str:
-        if len(v.encode("utf-8")) > 72:
-            raise ValueError("Password must be at most 72 bytes")
-        return v
+    _check_password = field_validator("password")(_password_fits_bcrypt)
+
+
+class ProfileUpdate(BaseModel):
+    email: EmailStr
+
+
+class PasswordChange(BaseModel):
+    current_password: str
+    new_password: str = Field(min_length=8)
+
+    _check_password = field_validator("new_password")(_password_fits_bcrypt)
 
 
 class UserOut(ORMBase):
