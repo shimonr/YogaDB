@@ -31,7 +31,9 @@ if git -C "$root" ls-remote --exit-code --tags origin "refs/tags/v$version" >/de
 
 repo_path="$(sed -E 's#https://github.com/##; s#\.git$##' <<< "$REPO_URL")"
 ci="$(curl -fsS "https://api.github.com/repos/$repo_path/actions/runs?head_sha=$head&per_page=5" 2>/dev/null \
-  | python3 -c 'import json,sys; runs=[r for r in json.load(sys.stdin)["workflow_runs"] if r["name"]=="CI"]; print(f"{runs[0][\"status\"]}/{runs[0][\"conclusion\"]}" if runs else "missing")' 2>/dev/null || echo unknown)"
+  | python3 -c 'import json, sys
+runs = [r for r in json.load(sys.stdin)["workflow_runs"] if r["name"] == "CI"]
+print("%s/%s" % (runs[0]["status"], runs[0]["conclusion"]) if runs else "missing")' 2>/dev/null || echo unknown)"
 [[ "$ci" == "completed/success" ]] && ok "CI passed for ${head:0:7}" || bad "CI for ${head:0:7} is $ci (wait for it if it is still running)"
 
 health="$(curl -fsS --max-time 15 "https://$DOMAIN/api/health" 2>/dev/null || echo unreachable)"

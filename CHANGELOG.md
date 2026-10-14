@@ -2,6 +2,11 @@
 
 Versions follow `MAJOR.MINOR.PATCH`. The version lives in `VERSION` (and `frontend/package.json`); the app shows it on the About page, in the sidebar and at `/api/health`. Releases are tagged `vX.Y.Z` and produced with the `version-wrap` skill.
 
+## 0.2.1 — 2026-10-13
+
+Fixed
+- `scripts/verify-release.sh` reported CI as unknown on Python 3.11.
+
 ## 0.2.0 — 2026-10-13
 
 Pre-QA release: production on the Oracle VM with the real asana data, plus a QA copy.

@@ -1,10 +1,10 @@
-# Session handoff — version 0.2.0 (2026-10-13)
+# Session handoff — version 0.2.1 (2026-10-13)
 
 Snapshot of where YogaDB stands; the `version-wrap` skill rewrites it at the end of each session. History of changes: `CHANGELOG.md` and git tags. Earlier session threads: https://ampcode.com/threads/T-01a126c7-3226-76bb-9da0-c62acc7157e3
 
 ## Where things stand
 
-- **Version 0.2.0** (tag `v0.2.0`), the pre-QA release. CI (lint, tests, migrations check, build) passes on every push.
+- **Version 0.2.1** (tag `v0.2.1`), the pre-QA release (0.2.0 plus a release-script fix). CI (lint, tests, migrations check, build) passes on every push.
 - **Production:** https://yogadb.129-159-8-242.sslip.io on the Oracle VM `ubuntu@129.159.8.242` (Ubuntu 24.04 ARM, 4 cores, 23 GB RAM, 96 GB disk). 106 asanas, 1,059 photos, real data.
 - **QA copy:** https://qa.yogadb.129-159-8-242.sslip.io, own database, same photos, sample transitions/flows/classes. Ready for the QA phase.
 - **Free services** (Vercel/Render/Neon/Cloudinary) are a documented backup only; not verified recently.
