@@ -2,6 +2,16 @@
 
 Versions follow `MAJOR.MINOR.PATCH`. The version lives in `VERSION` (and `frontend/package.json`); the app shows it on the About page, in the sidebar and at `/api/health`. Releases are tagged `vX.Y.Z` and produced with the `version-wrap` skill.
 
+## 0.3.2 — 2026-10-14
+
+First run of the `version-wrap` skill; no app changes.
+
+Internal
+- `version-wrap` tries a release candidate on QA before bumping and tagging, publishes GitHub releases, and records lessons for the next run.
+- `scripts/verify-release.sh` waits for CI and also checks the GitHub release, backups on the VM and off-site, the uptime monitor and the QA test mailbox; `--site-only` checks a release candidate.
+- GitHub releases published for v0.2.0 to v0.3.1 (`scripts/github-release.sh`).
+- The uptime check now runs at :17 and :47; GitHub had not run the :00/:30 schedule at all.
+
 ## 0.3.1 — 2026-10-14
 
 Fixed

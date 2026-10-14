@@ -1,10 +1,10 @@
-# Session handoff — version 0.3.1 (2026-10-14)
+# Session handoff — version 0.3.2 (2026-10-14)
 
 Snapshot of where YogaDB stands; the `version-wrap` skill rewrites it at the end of each session. History of changes: `CHANGELOG.md` and git tags. Earlier session threads: https://ampcode.com/threads/T-01a126c7-3226-76bb-9da0-c62acc7157e3
 
 ## Where things stand
 
-- **Version 0.3.1** (tag `v0.3.1`): everything planned before QA (password reset, QA reset and test mailbox, off-site backups) and the new design. QA testing starts on this version. CI (lint, tests, migrations check, build) passes on every push.
+- **Version 0.3.2** (tag `v0.3.2`, [GitHub release](https://github.com/shimonr/YogaDB/releases/tag/v0.3.2)): the app is the same as 0.3.1 (password reset, QA reset and test mailbox, off-site backups, new design); 0.3.2 only improves the release tooling. The QA testing phase runs on this version. CI (lint, tests, migrations check, build) passes on every push.
 - **Production:** https://yogadb.129-159-8-242.sslip.io on the Oracle VM `ubuntu@129.159.8.242` (Ubuntu 24.04 ARM, 4 cores, 23 GB RAM, 96 GB disk). 106 asanas, 1,059 photos, real data.
 - **QA copy:** https://qa.yogadb.129-159-8-242.sslip.io, own database, same photos, sample transitions/flows/classes, "Reset QA" in Admin → QA Tools, test mailbox https://mail.qa.yogadb.129-159-8-242.sslip.io (user `qa`, password `MAILPIT_PASSWORD` in the QA `.env`).
 - **Free services** (Vercel/Render/Neon/Cloudinary) are a documented backup only; not verified recently.
@@ -13,7 +13,7 @@ Snapshot of where YogaDB stands; the `version-wrap` skill rewrites it at the end
 
 - Local run (Windows): `run-local.cmd`. Orb: `.agents/setup` installs everything; see `AGENTS.md`.
 - Deploy: push to `master`, then `deploy.cmd` / `deploy-qa.cmd` or `scripts/deploy.sh [qa]`. Publish asana data/photos from the PC: `upload-photos.cmd`. Backups to the PC: `download-backups.cmd`.
-- End of session: `version-wrap` skill (docs, tests, version bump, tag, push, deploy QA then production, `scripts/verify-release.sh`).
+- End of session: `version-wrap` skill (tests, release candidate on QA, version bump, changelog, tag, push, GitHub release, deploy QA then production, `scripts/verify-release.sh qa|prod --e2e`). Its "Lessons" section collects what each run learned.
 - Server layout: production checkout `/opt/apps/yogadb`, QA `/opt/apps/yogadb-qa`; secrets incl. admin password in `<checkout>/deploy/oracle/.env`; asana data `/opt/apps/yogadb-data/asanas`; backups `/opt/backups/yogadb[-qa]`; shared Caddy proxy (compose project `proxy`, network `web`).
 - SSH keys on the VM: the owner's Oracle key, his PC key (`shimo@Shimon-LT-ACER`), and `amp-deploy@yogadb` (private key only in the 2026-10-11 orb). Agents in new orbs need an `ORACLE_SSH_PRIVATE_KEY` Amp secret.
 - Amp project secrets: `CLOUDINARY_CLOUD_NAME` (stored with a capital letter; Cloudinary accepts it lowercased), `CLOUDINARY_API_KEY`, `CLOUDINARY_API_SECRET`.
@@ -37,3 +37,5 @@ Snapshot of where YogaDB stands; the `version-wrap` skill rewrites it at the end
 - **Backups:** off-site copies skip files over 10 MB (Cloudinary free plan limit); large upload archives would only be on the VM and the PC (`download-backups.cmd`).
 - **Free-tier backup:** not exercised since the Oracle move; Cloudinary cloud name capitalization may break uploads there.
 - **Tests:** no browser tests yet for admin editing of asanas/transitions/flows/classes.
+- **Uptime monitor:** GitHub never ran the original :00/:30 schedule; it now runs at :17/:47. `verify-release.sh prod` fails if the last run is older than 3 hours, so the next wrap will show whether the new schedule works.
+- **QA findings:** none reported yet; collect them for the next session.
