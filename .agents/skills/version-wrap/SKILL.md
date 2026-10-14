@@ -51,6 +51,8 @@ scripts/verify-release.sh qa --site-only --e2e
 
 Fix what fails, push, and repeat this step.
 
+Then improve this skill now, not after the release: add what this session taught you (a failure, a manual workaround, a missing check) to "Lessons" below or fix the step itself, and commit it with the candidate. Changes made after the bump need another release, because verification requires the deployed commit to be HEAD.
+
 ## 4. Version, docs, release
 
 1. Bump: `patch` = fixes, docs or tooling only; `minor` = new features or behavior changes; `major` only when the owner asks. `scripts/bump-version.sh <patch|minor|major>` prints the new version.
@@ -83,7 +85,7 @@ scripts/verify-release.sh qa --e2e
 scripts/verify-release.sh prod --e2e
 ```
 
-Checks: version files, changelog and handoff; clean, pushed tree; tag and GitHub release; CI for the commit (waits up to 15 minutes); deployed version and commit; prod: backups on the VM (< 26 h) and off-site (< 50 h), uptime monitor ran (< 3 h); qa: test mailbox up; browser tests (credentials come from the server `.env`, never printed). Fix any failure and repeat from the step that owns it.
+Checks: version files, changelog and handoff; clean, pushed tree; tag and GitHub release; CI for the commit (waits up to 15 minutes); deployed version and commit; prod: backups on the VM (< 26 h) and off-site (< 50 h), uptime check passed (< 3 h) and its schedule firing (warning only); qa: test mailbox up; browser tests (credentials come from the server `.env`, never printed). Fix any failure and repeat from the step that owns it.
 
 Data-changing QA tests (`E2E_QA_FLOWS=1`, `E2E_QA_RESET=1`) create test users and can wipe QA. Use them only when the owner confirms in this session that nobody is testing QA.
 
@@ -91,14 +93,12 @@ Data-changing QA tests (`E2E_QA_FLOWS=1`, `E2E_QA_RESET=1`) create test users an
 
 Version, what changed (from the changelog), links to the GitHub release and both sites, what was verified (paste the verify summaries), anything skipped and why, and the "Still open" list from `docs/HANDOFF.md`.
 
-## 8. Improve this skill
-
-Before finishing, add anything this run taught you (a failure, a manual workaround, a check that was missing) to "Lessons" below or fix the step itself, and include it in the release commit.
-
 ## Lessons
 
 - 2026-10-14: verification found bugs only after tagging twice (0.2.1, 0.3.1). Step 3 now tries a release candidate on QA before bump and tag.
 - 2026-10-14: right after a push the CI run does not exist yet; `verify-release.sh` waits for it instead of reporting "unknown".
 - 2026-10-14: the uptime workflow was "active" but GitHub never ran its `*/30` schedule. Its cron now avoids :00/:30 and `verify-release.sh prod` fails when the last run is older than 3 hours. If it keeps failing, trigger it with `gh workflow run uptime.yml` and check GitHub's status page.
 - 2026-10-14: the orb's Amp secrets include `CLOUDINARY_*`; tests clear them in `conftest.py`, and a locally started API must unset them (see `AGENTS.md`).
+- 2026-10-14: a manual `gh workflow run uptime.yml` made the uptime check pass while the schedule still had not fired; scheduled runs are now checked separately (a warning, so a late GitHub schedule doesn't block a release).
+- 2026-10-14: lessons found after the bump forced 0.3.3 right after 0.3.2; skill improvements now happen in step 3, before the bump.
 - 2026-10-14: PowerShell variables are case-insensitive (`$Target` = `$target`); keep that in mind when editing `scripts/*.ps1`.

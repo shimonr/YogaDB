@@ -28,6 +28,7 @@ oracle_load "$target" || exit 2
 failures=0
 ok() { echo "  ok    $*"; }
 bad() { echo "  FAIL  $*"; failures=$((failures + 1)); }
+warn() { echo "  warn  $*"; }
 github() { curl -fsS "https://api.github.com/repos/$repo_path/$1" 2>/dev/null; }
 
 version="$(tr -d '[:space:]' < "$root/VERSION")"
@@ -86,12 +87,23 @@ else:
     files = o.remote_files()
     print(int((datetime.now(UTC) - max(files.values())).total_seconds() // 3600) if files else \"none\")'" 2>/dev/null | tail -1)"
   [[ "$offsite" =~ ^[0-9]+$ && "$offsite" -lt 50 ]] && ok "newest off-site backup copy is ${offsite}h old" || bad "off-site backups: ${offsite:-unknown} (expected a copy < 50h old)"
-  uptime="$(github "actions/workflows/uptime.yml/runs?per_page=1" | python3 -c 'import json, sys
+  last_run() {  # "<conclusion> <hours ago>" of the newest uptime run, optionally only scheduled ones
+    github "actions/workflows/uptime.yml/runs?per_page=1$1" | python3 -c 'import json, sys
 from datetime import UTC, datetime
 runs = json.load(sys.stdin)["workflow_runs"]
 r = runs[0] if runs else None
-print("%s %d" % (r["conclusion"], (datetime.now(UTC) - datetime.fromisoformat(r["created_at"].replace("Z", "+00:00"))).total_seconds() // 3600) if r else "never")' 2>/dev/null || echo unknown)"
-  [[ "$uptime" =~ ^success\ ([0-9]+)$ && "${BASH_REMATCH[1]}" -lt 3 ]] && ok "uptime monitor ran successfully ${BASH_REMATCH[1]}h ago" || bad "uptime monitor: last run '$uptime' (expected success < 3h ago; GitHub may be skipping the schedule)"
+print("%s %d" % (r["conclusion"], (datetime.now(UTC) - datetime.fromisoformat(r["created_at"].replace("Z", "+00:00"))).total_seconds() // 3600) if r else "never")' 2>/dev/null || echo unknown
+  }
+  any_run="$(last_run "")"
+  scheduled="$(last_run "&event=schedule")"
+  if [[ "$any_run" =~ ^success\ ([0-9]+)$ && "${BASH_REMATCH[1]}" -lt 3 ]]; then
+    ok "uptime check passed ${BASH_REMATCH[1]}h ago"
+  else
+    bad "uptime check: last run '$any_run' (expected success < 3h ago)"
+  fi
+  # A manual run (gh workflow run) also satisfies the check above; make sure the schedule fires.
+  [[ "$scheduled" =~ ^[a-z]+\ ([0-9]+)$ && "${BASH_REMATCH[1]}" -lt 3 ]] && ok "uptime schedule is firing (last scheduled run ${BASH_REMATCH[1]}h ago)" \
+    || warn "uptime schedule: last scheduled run '$scheduled'; GitHub may be skipping it (only manual runs so far)"
 else
   mail="$(curl -s -o /dev/null -w '%{http_code}' --max-time 15 "https://mail.$DOMAIN/" 2>/dev/null)"
   [[ "$mail" == 401 ]] && ok "QA test mailbox is up (asks for login)" || bad "QA test mailbox https://mail.$DOMAIN answered $mail (expected 401)"
